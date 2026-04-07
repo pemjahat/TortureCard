@@ -1,0 +1,8 @@
+# Build directories
+build/
+
+# CMake generated
+!CMakeLists.txt
+
+# Data
+database.json
