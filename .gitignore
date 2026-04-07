@@ -1,5 +1,6 @@
 # Build directories
 build/
+ThirdParty/
 
 # CMake generated
 !CMakeLists.txt

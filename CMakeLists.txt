@@ -18,6 +18,47 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 # ---------------------------------------------------------------------------
+# Helper: download and extract a versioned package
+# ---------------------------------------------------------------------------
+function(CheckAndDownloadPackage NAME VERSION LOCAL_PATH URL)
+    # Do we already have the correct version?
+    if(NOT EXISTS ${LOCAL_PATH}/${VERSION}.ver)
+        # Was there a previous version that we need to delete?
+        if(EXISTS ${LOCAL_PATH})
+            message(STATUS "Deleting old " ${NAME})
+            file(REMOVE_RECURSE ${LOCAL_PATH})
+        endif()
+        message(STATUS "Obtaining " ${NAME} " " ${VERSION})
+        file(DOWNLOAD ${URL} ${LOCAL_PATH}.zip)
+        message(STATUS "Extracting " ${NAME})
+        file(ARCHIVE_EXTRACT INPUT ${LOCAL_PATH}.zip DESTINATION ${LOCAL_PATH})
+        file(REMOVE ${LOCAL_PATH}.zip)
+        # Create an empty file so we know which version we have
+        file(WRITE ${LOCAL_PATH}/${VERSION}.ver)
+    endif()
+endfunction()
+
+# ---------------------------------------------------------------------------
+# Third-party: jsmn (single-header JSON parser)
+# ---------------------------------------------------------------------------
+set(JSMN_VERSION "v1.1.0")
+set(JSMN_LOCAL_PATH "${CMAKE_SOURCE_DIR}/ThirdParty/jsmn")
+set(JSMN_URL "https://github.com/zserge/jsmn/archive/refs/tags/${JSMN_VERSION}.zip")
+
+CheckAndDownloadPackage("jsmn" "${JSMN_VERSION}" "${JSMN_LOCAL_PATH}" "${JSMN_URL}")
+
+# Locate the header (the archive extracts into a subdirectory jsmn-<version>)
+# Support both flat layout and the nested jsmn-<version> layout GitHub produces
+string(REPLACE "v" "" JSMN_VERSION_STRIPPED "${JSMN_VERSION}")
+if(EXISTS "${JSMN_LOCAL_PATH}/jsmn.h")
+    set(JSMN_INCLUDE_DIR "${JSMN_LOCAL_PATH}")
+else()
+    set(JSMN_INCLUDE_DIR "${JSMN_LOCAL_PATH}/jsmn-${JSMN_VERSION_STRIPPED}")
+endif()
+
+message(STATUS "jsmn include dir: ${JSMN_INCLUDE_DIR}")
+
+# ---------------------------------------------------------------------------
 # Database: download database.json if not present
 # ---------------------------------------------------------------------------
 set(PTCGP_DATABASE_URL
@@ -60,6 +101,7 @@ target_include_directories(ptcgp_sim_lib
         $<INSTALL_INTERFACE:include>
     PRIVATE
         ${CMAKE_SOURCE_DIR}/src/lib
+        ${JSMN_INCLUDE_DIR}
 )
 
 target_compile_options(ptcgp_sim_lib PRIVATE
