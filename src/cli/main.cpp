@@ -1,4 +1,5 @@
 #include "ptcgp_sim.h"
+#include <cassert>
 #include <iostream>
 #include <string>
 
@@ -26,7 +27,8 @@ static const char* energy_type_name(ptcgp_sim::EnergyType e)
 
 static void print_card(const ptcgp_sim::Card& c) 
 {
-    std::cout << "  id          : " << c.id   << "\n"
+    std::cout << "  id          : " << c.id.to_string() << "  "
+              << "(" << c.id.expansion << " / #" << c.id.number << ")\n"
               << "  name        : " << c.name << "\n"
               << "  hp          : " << c.hp   << "\n"
               << "  energy type : " << energy_type_name(c.energy_type) << "\n";
@@ -76,11 +78,18 @@ static int cmd_util(int argc, char* argv[])
         }
         std::string full_id = argv[2];
 
+        // Parse the id string into a structured CardId
+        auto space_pos = full_id.find(' ');
+        assert(space_pos != std::string::npos && space_pos > 0 && space_pos + 1 < full_id.size()
+            && "Invalid card id format. Expected \"<expansion> <number>\", e.g. \"A1 002\"");
+
+        ptcgp_sim::CardId card_id = ptcgp_sim::Database::parse_id(full_id);
+
         std::cout << "Loading database...\n";
         ptcgp_sim::Database db = ptcgp_sim::Database::load();
         std::cout << "Loaded " << db.size() << " cards.\n\n";
 
-        const ptcgp_sim::Card* card = db.find_by_id(full_id);
+        const ptcgp_sim::Card* card = db.find_by_id(card_id);
         if (!card) 
         {
             std::cerr << "Card not found: \"" << full_id << "\"\n";

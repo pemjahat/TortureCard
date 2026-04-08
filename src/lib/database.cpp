@@ -3,15 +3,41 @@
 
 #include "ptcgp_sim/database.h"
 
+#include <cassert>
 #include <cstring>
 #include <fstream>
+#include <iomanip>
 #include <sstream>
-#include <stdexcept>
 #include <string>
 #include <vector>
 
 namespace ptcgp_sim 
 {
+
+// ---------------------------------------------------------------------------
+// CardId helpers
+// ---------------------------------------------------------------------------
+
+std::string CardId::to_string() const
+{
+    std::ostringstream oss;
+    oss << expansion << " " << std::setw(3) << std::setfill('0') << number;
+    return oss.str();
+}
+
+// Parse "A1 002" or "B2b 015" -> CardId{"A1", 2} / CardId{"B2b", 15}
+CardId Database::parse_id(const std::string& full_id)
+{
+    // Find the space separator between expansion code and number
+    auto pos = full_id.find(' ');
+    assert(pos != std::string::npos && pos > 0 && pos + 1 < full_id.size()
+        && "Database::parse_id: invalid id format, expected \"<expansion> <number>\"");
+
+    CardId result;
+    result.expansion = full_id.substr(0, pos);
+    result.number    = std::stoi(full_id.substr(pos + 1));
+    return result;
+}
 
 // ---------------------------------------------------------------------------
 // jsmn helpers
@@ -136,9 +162,10 @@ Database Database::load(const std::string& path)
 
                 if (tok_eq(js, key, "id")) 
                 {
-                    card.id = tok_str(js, val);
+                    // Parse "A1 002" -> CardId{"A1", 2}
+                    card.id = Database::parse_id(tok_str(js, val));
                     ++i;
-                } 
+                }
                 else if (tok_eq(js, key, "name")) 
                 {
                     card.name = tok_str(js, val);
@@ -212,7 +239,7 @@ Database Database::load(const std::string& path)
 // Database::find_by_id
 // ---------------------------------------------------------------------------
 
-const Card* Database::find_by_id(const std::string& id) const 
+const Card* Database::find_by_id(const CardId& id) const 
 {
     for (const Card& c : Cards)
         if (c.id == id) return &c;

@@ -21,9 +21,13 @@ public:
     // Load from an explicit file path
     static Database load(const std::string& path);
 
-    // Find a card by its full id string, e.g. "A1 002"
+    // Find a card by structured CardId.
     // Returns nullptr if not found.
-    const Card* find_by_id(const std::string& id) const;
+    const Card* find_by_id(const CardId& id) const;
+
+    // Parse a full id string like "A1 002" into a CardId.
+    // Throws std::invalid_argument if the format is unrecognised.
+    static CardId parse_id(const std::string& full_id);
 
     const std::vector<Card>& all_cards() const { return Cards; }
     std::size_t              size()      const { return Cards.size(); }

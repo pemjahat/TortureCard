@@ -7,4 +7,5 @@ build_log.txt
 !CMakeLists.txt
 
 # Data
-database.json
+database/
+decks/

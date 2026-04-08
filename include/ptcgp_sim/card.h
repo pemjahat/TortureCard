@@ -29,9 +29,25 @@ enum class EnergyType
     Unknown,
 };
 
+// Structured card identifier: expansion code (e.g. "A1", "B2b") + card number (e.g. 1 for "001")
+struct CardId 
+{
+    std::string expansion; // 2-3 character set code, e.g. "A1", "B2b"
+    int         number{0}; // card number stored as int, e.g. "001" -> 1
+
+    // Reconstruct the original full id string, e.g. "A1 001"
+    std::string to_string() const;
+
+    bool operator==(const CardId& o) const 
+    {
+        return expansion == o.expansion && number == o.number;
+    }
+    bool operator!=(const CardId& o) const { return !(*this == o); }
+};
+
 struct Card 
 {
-    std::string               id;
+    CardId                    id;
     std::string               name;
     CardType                  type{CardType::Pokemon};
     int                       hp{0};
