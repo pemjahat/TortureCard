@@ -4,9 +4,11 @@
 #include <vector>
 #include <string>
 
-namespace ptcgp_sim {
+namespace ptcgp_sim 
+{
 
-struct Deck {
+struct Deck 
+{
     std::string       name;
     std::vector<Card> cards;
 

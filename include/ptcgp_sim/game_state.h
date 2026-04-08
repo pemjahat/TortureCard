@@ -4,9 +4,11 @@
 #include "deck.h"
 #include <vector>
 
-namespace ptcgp_sim {
+namespace ptcgp_sim 
+{
 
-struct PlayerState {
+struct PlayerState 
+{
     Deck              deck;
     std::vector<Card> hand;
     std::vector<Card> bench;
@@ -14,7 +16,8 @@ struct PlayerState {
     int               prize_cards_taken{0};
 };
 
-struct GameState {
+struct GameState 
+{
     PlayerState players[2];
     int         turn{0};
     int         active_player{0}; // 0 or 1

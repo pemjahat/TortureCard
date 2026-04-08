@@ -3,14 +3,17 @@
 #include "deck.h"
 #include "game_state.h"
 
-namespace ptcgp_sim {
+namespace ptcgp_sim 
+{
 
-struct SimulationResult {
+struct SimulationResult 
+{
     int winner{-1};   // 0 or 1
     int turns{0};
 };
 
-class Simulator {
+class Simulator 
+{
 public:
     Simulator() = default;
 
