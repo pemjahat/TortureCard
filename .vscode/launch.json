@@ -6,7 +6,7 @@
             "type": "cppvsdbg",
             "request": "launch",
             "program": "${workspaceFolder}/build/bin/Debug/ptcgp_cli.exe",
-            "args": ["util", "--validate_deck", "decks/altaria.json"],
+            "args": ["util", "--simulate_turn", "decks/altaria.json", "decks/arceusdialga.json"],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [],

@@ -1,0 +1,17 @@
+{
+  "energy": ["Metal"],
+  "cards": [
+    { "id": "A1 223",  "count": 1, "name": "Giovanni" },
+    { "id": "A1 225",  "count": 1, "name": "Sabrina" },
+    { "id": "A1 270",  "count": 1, "name": "Giovanni" },
+    { "id": "A1 272",  "count": 1, "name": "Sabrina" },
+    { "id": "A1a 068", "count": 2, "name": "Leaf" },
+    { "id": "A2 119",  "count": 2, "name": "Dialga ex" },
+    { "id": "A2 147",  "count": 2, "name": "Giant Cape" },
+    { "id": "A2 150",  "count": 2, "name": "Cyrus" },
+    { "id": "A2a 096", "count": 2, "name": "Arceus ex" },
+    { "id": "P-A 001", "count": 2, "name": "Potion" },
+    { "id": "P-A 005", "count": 2, "name": "Poke Ball" },
+    { "id": "P-A 007", "count": 2, "name": "Professor's Research" }
+  ]
+}

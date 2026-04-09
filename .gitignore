@@ -2,6 +2,7 @@
 build/
 ThirdParty/
 build_log.txt
+build_output.txt
 
 # CMake generated
 !CMakeLists.txt

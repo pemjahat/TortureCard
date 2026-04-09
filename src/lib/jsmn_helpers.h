@@ -1,6 +1,6 @@
 #pragma once
 
-#define JSMN_HEADER
+#define JSMN_STATIC
 #include "jsmn.h"
 #include <cstring>
 #include <string>
