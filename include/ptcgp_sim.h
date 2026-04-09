@@ -8,4 +8,6 @@
 #include "ptcgp_sim/database.h"
 #include "ptcgp_sim/deck.h"
 #include "ptcgp_sim/game_state.h"
+#include "ptcgp_sim/action.h"
+#include "ptcgp_sim/move_generation.h"
 #include "ptcgp_sim/simulator.h"

@@ -45,6 +45,7 @@ struct InPlayPokemon
     std::vector<EnergyType> attached_energy;       // Energy cards attached to this Pokemon
     StatusCondition status{StatusCondition::None}; // Current status condition
     bool            played_this_turn{true};        // True if placed on mat this turn
+    std::optional<Card> attached_tool{};           // Tool card attached to this Pokemon (if any)
 
     // Convenience: remaining HP = base hp - damage_counters
     int remaining_hp() const
@@ -104,6 +105,18 @@ struct GameState
     bool      game_over{false};
     int       winner{-1};         // -1 = none, 0 = player 0, 1 = player 1
 
+    // Per-turn flags (reset at the start of each new turn)
+    bool energy_attached_this_turn{false};
+    bool supporter_played_this_turn{false};
+    bool retreated_this_turn{false};
+    bool attacked_this_turn{false};
+
+    // Stadium currently in play (nullopt if none)
+    std::optional<CardId> current_stadium{};
+
+    // Energy available to attach this turn (nullopt if not yet generated / turn 1)
+    std::optional<EnergyType> current_energy{};
+
     // Initialize a fresh game from two decks
     static GameState make(const Deck& deck_p0, const Deck& deck_p1)
     {
@@ -128,12 +141,23 @@ struct GameState
             case TurnPhase::Action:  turn_phase = TurnPhase::Attack;  break;
             case TurnPhase::Attack:  turn_phase = TurnPhase::Cleanup; break;
             case TurnPhase::Cleanup:
-                // End of turn: switch player, increment turn number, go to Draw
+                // End of turn: switch player, increment turn number, reset flags, go to Draw
                 current_player = (current_player + 1) % 2;
                 turn_number   += 1;
                 turn_phase     = TurnPhase::Draw;
+                reset_turn_flags();
                 break;
         }
+    }
+
+    // Reset all per-turn flags (called at the start of each new turn)
+    void reset_turn_flags()
+    {
+        energy_attached_this_turn  = false;
+        supporter_played_this_turn = false;
+        retreated_this_turn        = false;
+        attacked_this_turn         = false;
+        current_energy             = std::nullopt;
     }
 
     // Check and set game_over / winner if a player has reached 3 points

@@ -135,6 +135,39 @@ target_compile_options(ptcgp_cli PRIVATE
 )
 
 # ---------------------------------------------------------------------------
+# Tests
+# ---------------------------------------------------------------------------
+enable_testing()
+
+# Helper macro: add a single-file test executable and register it with CTest
+macro(add_ptcgp_test TARGET_NAME SOURCE_FILE TEST_NAME)
+    add_executable(${TARGET_NAME} ${SOURCE_FILE})
+    target_link_libraries(${TARGET_NAME} PRIVATE ptcgp_sim_lib)
+    target_include_directories(${TARGET_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/include)
+    target_compile_options(${TARGET_NAME} PRIVATE
+        $<$<CXX_COMPILER_ID:MSVC>:/W4>
+        $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-Wall -Wextra -Wpedantic>
+    )
+    # Expose the same database path that ptcgp_sim_lib uses, so tests can call Database::load()
+    target_compile_definitions(${TARGET_NAME} PRIVATE
+        PTCGP_DATABASE_PATH="${PTCGP_DATABASE_LOCAL}"
+        PTCGP_TEST_DECK_PATH="${CMAKE_SOURCE_DIR}/tests/decks/test_deck.json"
+    )
+    add_test(
+        NAME ${TEST_NAME} 
+        COMMAND ${TARGET_NAME}
+        CONFIGURATIONS Debug Release RelWithDebInfo MinSizeRel)
+endmacro()
+
+add_ptcgp_test(ptcgp_test_moves
+    "${CMAKE_SOURCE_DIR}/tests/test_move_generation.cpp"
+    MoveGenerationTests)
+
+add_ptcgp_test(ptcgp_test_deck
+    "${CMAKE_SOURCE_DIR}/tests/test_deck_validation.cpp"
+    DeckValidationTests)
+
+# ---------------------------------------------------------------------------
 # Summary
 # ---------------------------------------------------------------------------
 message(STATUS "")

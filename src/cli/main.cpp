@@ -2,6 +2,7 @@
 #include <cassert>
 #include <iostream>
 #include <string>
+#include <algorithm>
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -44,10 +45,11 @@ static int cmd_util(int argc, char* argv[])
 {
     if (argc < 2) 
     {
-        std::cerr << "util: no sub-option given\n"
+    std::cerr << "util: no sub-option given\n"
                   << "  --fetch_card <ID>                         Print card details (e.g. \"A1 002\")\n"
                   << "  --validate_deck <deck.json>               Validate a deck JSON file\n"
-                  << "  --simulate_turn <deck1.json> <deck2.json> Initialize a GameState and print summary\n";
+                  << "  --simulate_turn <deck1.json> <deck2.json> Initialize a GameState and print summary\n"
+                  << "  --dump_moves    <deck1.json> <deck2.json> Print game state and all legal moves\n";
         return 1;
     }
 
@@ -202,6 +204,228 @@ static int cmd_util(int argc, char* argv[])
         return 0;
     }
 
+    if (opt == "--dump_moves")
+    {
+        if (argc < 4)
+        {
+            std::cerr << "util --dump_moves requires <deck1.json> <deck2.json>\n";
+            return 1;
+        }
+        const std::string deck1_path = argv[2];
+        const std::string deck2_path = argv[3];
+
+        std::cout << "Loading database...\n";
+        ptcgp_sim::Database db = ptcgp_sim::Database::load();
+        std::cout << "Loaded " << db.size() << " cards.\n\n";
+
+        ptcgp_sim::Deck deck0 = ptcgp_sim::Deck::load_from_json(deck1_path, db);
+        ptcgp_sim::Deck deck1 = ptcgp_sim::Deck::load_from_json(deck2_path, db);
+
+        std::vector<std::string> errors0, errors1;
+        if (!deck0.validate(errors0))
+        {
+            std::cerr << "Deck 1 validation FAILED:\n";
+            for (const auto& e : errors0) std::cerr << "  [ERROR] " << e << "\n";
+            return 1;
+        }
+        if (!deck1.validate(errors1))
+        {
+            std::cerr << "Deck 2 validation FAILED:\n";
+            for (const auto& e : errors1) std::cerr << "  [ERROR] " << e << "\n";
+            return 1;
+        }
+
+        // Build a fresh game state in Setup phase
+        ptcgp_sim::GameState gs = ptcgp_sim::GameState::make(deck0, deck1);
+
+        // Deal 5 cards to each player
+        for (int p = 0; p < 2; ++p)
+        {
+            auto& player = gs.players[p];
+            for (int i = 0; i < 5 && !player.deck.cards.empty(); ++i)
+            {
+                player.hand.push_back(player.deck.cards.back());
+                player.deck.cards.pop_back();
+            }
+        }
+
+        // Helper: trainer type label
+        auto trainer_type_str = [](ptcgp_sim::TrainerType tt) -> const char*
+        {
+            switch (tt)
+            {
+                case ptcgp_sim::TrainerType::Item:      return "Item";
+                case ptcgp_sim::TrainerType::Tool:      return "Tool";
+                case ptcgp_sim::TrainerType::Supporter: return "Supporter";
+                case ptcgp_sim::TrainerType::Stadium:   return "Stadium";
+                default:                                return "?";
+            }
+        };
+
+        // Helper: print a single InPlayPokemon slot
+        auto print_slot = [&](const std::optional<ptcgp_sim::InPlayPokemon>& slot,
+                               const std::string& label)
+        {
+            if (!slot.has_value())
+            {
+                std::cout << "    " << label << ": (empty)\n";
+                return;
+            }
+            const auto& ip = *slot;
+            std::cout << "    " << label << ": " << ip.card.name
+                      << " (" << ip.card.id.to_string() << ")"
+                      << "  HP: " << ip.remaining_hp() << "/" << ip.card.hp
+                      << "  Stage: " << ip.card.stage;
+            if (!ip.attached_energy.empty())
+            {
+                std::cout << "  Energy: [";
+                for (std::size_t ei = 0; ei < ip.attached_energy.size(); ++ei)
+                {
+                    if (ei) std::cout << ", ";
+                    std::cout << ptcgp_sim::energy_to_string(ip.attached_energy[ei]);
+                }
+                std::cout << "]";
+            }
+            if (ip.attached_tool.has_value())
+                std::cout << "  Tool: " << ip.attached_tool->name;
+            std::cout << "\n";
+        };
+
+        // Print full game state
+        std::cout << "=== Game State ===\n";
+        std::cout << "Turn number   : " << gs.turn_number << "\n";
+        std::cout << "Turn phase    : " << ptcgp_sim::GameState::phase_name(gs.turn_phase) << "\n";
+        std::cout << "Current player: " << gs.current_player << "\n";
+        if (gs.current_stadium.has_value())
+            std::cout << "Stadium       : " << gs.current_stadium->to_string() << "\n";
+        else
+            std::cout << "Stadium       : (none)\n";
+        std::cout << "\n";
+
+        for (int p = 0; p < 2; ++p)
+        {
+            const auto& player = gs.players[p];
+            std::cout << "--- Player " << p << " ---\n";
+            std::cout << "  Points: " << player.points << "\n";
+            std::cout << "  Hand (" << player.hand.size() << " cards):\n";
+            for (const auto& c : player.hand)
+            {
+                if (c.type == ptcgp_sim::CardType::Pokemon)
+                    std::cout << "    [Pokemon] " << c.name
+                              << " (" << c.id.to_string() << ")  Stage: " << c.stage << "\n";
+                else
+                    std::cout << "    [Trainer/" << trainer_type_str(c.trainer_type) << "] "
+                              << c.name << " (" << c.id.to_string() << ")\n";
+            }
+            std::cout << "  Pokemon slots:\n";
+            print_slot(player.pokemon_slots[0], "Active");
+            for (int s = 1; s <= 3; ++s)
+            {
+                std::string bench_label = "Bench " + std::to_string(s);
+                print_slot(player.pokemon_slots[s], bench_label);
+            }
+            std::cout << "\n";
+        }
+
+        // Generate and print legal moves for current player
+        int cur = gs.current_player;
+        std::vector<ptcgp_sim::Action> moves = ptcgp_sim::generate_legal_moves(gs, cur);
+
+        std::cout << "=== Legal Moves for Player " << cur << " ===\n";
+        if (moves.empty())
+        {
+            std::cout << "No legal moves available\n";
+        }
+        else
+        {
+            for (std::size_t i = 0; i < moves.size(); ++i)
+            {
+                // Build human-readable description
+                const auto& m = moves[i];
+                std::cout << (i + 1) << ". ";
+                switch (m.type)
+                {
+                    case ptcgp_sim::ActionType::PlayPokemon:
+                    {
+                        const ptcgp_sim::Card* c = db.find_by_id(m.card_id);
+                        std::string name = c ? c->name : m.card_id.to_string();
+                        std::cout << "PlayPokemon: " << name
+                                  << " (" << m.card_id.to_string() << ")"
+                                  << " -> slot " << m.slot_index << "\n";
+                        break;
+                    }
+                    case ptcgp_sim::ActionType::AttachEnergy:
+                    {
+                        const auto& slot = gs.players[cur].pokemon_slots[m.target_slot];
+                        std::string pname = slot.has_value() ? slot->card.name : "?";
+                        std::cout << "AttachEnergy: "
+                                  << ptcgp_sim::energy_to_string(m.energy_type)
+                                  << " -> " << pname << " (slot " << m.target_slot << ")\n";
+                        break;
+                    }
+                    case ptcgp_sim::ActionType::Attack:
+                    {
+                        const auto& active = gs.players[cur].pokemon_slots[0];
+                        std::string atk_name = "?";
+                        if (active.has_value() &&
+                            m.attack_index < static_cast<int>(active->card.attacks.size()))
+                            atk_name = active->card.attacks[m.attack_index].name;
+                        std::cout << "Attack: " << atk_name
+                                  << " (index " << m.attack_index << ")\n";
+                        break;
+                    }
+                    case ptcgp_sim::ActionType::Retreat:
+                    {
+                        const auto& bench = gs.players[cur].pokemon_slots[m.slot_index];
+                        std::string bname = bench.has_value() ? bench->card.name : "?";
+                        std::cout << "Retreat: -> " << bname
+                                  << " (slot " << m.slot_index << ")\n";
+                        break;
+                    }
+                    case ptcgp_sim::ActionType::PlaySupporter:
+                    {
+                        const ptcgp_sim::Card* c = db.find_by_id(m.card_id);
+                        std::string name = c ? c->name : m.card_id.to_string();
+                        std::cout << "PlaySupporter: " << name
+                                  << " (" << m.card_id.to_string() << ")\n";
+                        break;
+                    }
+                    case ptcgp_sim::ActionType::PlayItem:
+                    {
+                        const ptcgp_sim::Card* c = db.find_by_id(m.card_id);
+                        std::string name = c ? c->name : m.card_id.to_string();
+                        std::cout << "PlayItem: " << name
+                                  << " (" << m.card_id.to_string() << ")\n";
+                        break;
+                    }
+                    case ptcgp_sim::ActionType::PlayTool:
+                    {
+                        const ptcgp_sim::Card* c = db.find_by_id(m.card_id);
+                        std::string name = c ? c->name : m.card_id.to_string();
+                        const auto& slot = gs.players[cur].pokemon_slots[m.slot_index];
+                        std::string pname = slot.has_value() ? slot->card.name : "?";
+                        std::cout << "PlayTool: " << name
+                                  << " (" << m.card_id.to_string() << ")"
+                                  << " -> " << pname << " (slot " << m.slot_index << ")\n";
+                        break;
+                    }
+                    case ptcgp_sim::ActionType::PlayStadium:
+                    {
+                        const ptcgp_sim::Card* c = db.find_by_id(m.card_id);
+                        std::string name = c ? c->name : m.card_id.to_string();
+                        std::cout << "PlayStadium: " << name
+                                  << " (" << m.card_id.to_string() << ")\n";
+                        break;
+                    }
+                    default:
+                        std::cout << m.to_string() << "\n";
+                        break;
+                }
+            }
+        }
+        return 0;
+    }
+
     std::cerr << "util: unknown option \"" << opt << "\"\n";
     return 1;
 }
@@ -221,7 +445,8 @@ int main(int argc, char* argv[])
                   << "  sim   <deck1.json> <deck2.json> [--games N]  Run simulation\n"
                   << "  util  --fetch_card <ID>                      Print card details\n"
                   << "  util  --validate_deck <deck.json>            Validate a deck\n"
-                  << "  util  --simulate_turn <d1.json> <d2.json>    Initialize and print game state\n";
+                  << "  util  --simulate_turn <d1.json> <d2.json>    Initialize and print game state\n"
+                  << "  util  --dump_moves    <d1.json> <d2.json>    Print game state + legal moves\n";
         return 0;
     }
 

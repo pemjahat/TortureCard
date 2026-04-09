@@ -14,6 +14,15 @@ enum class CardType
     Energy,
 };
 
+// Sub-classification for Trainer cards
+enum class TrainerType
+{
+    Item,       // One-shot effect, no per-turn limit
+    Tool,       // Attaches to a Pokemon; one Tool per Pokemon at a time
+    Supporter,  // Powerful effect; limited to one per turn
+    Stadium,    // Placed in shared zone; replaces any existing Stadium
+};
+
 enum class EnergyType 
 {
     Grass,
@@ -45,15 +54,30 @@ struct CardId
     bool operator!=(const CardId& o) const { return !(*this == o); }
 };
 
+// A single attack on a Pokemon card
+struct Attack
+{
+    std::string            name;
+    std::vector<EnergyType> energy_required; // energy cost to use this attack
+    int                    damage{0};        // base damage dealt
+};
+
 struct Card 
 {
     CardId                    id;
     std::string               name;
     CardType                  type{CardType::Pokemon};
+
+    // --- Pokemon fields ---
     int                       hp{0};
     EnergyType                energy_type{EnergyType::Colorless};
     std::optional<EnergyType> weakness;
     std::vector<EnergyType>   retreat_cost;
+    int                       stage{0};       // 0 = Basic, 1 = Stage 1, 2 = Stage 2
+    std::vector<Attack>       attacks;
+
+    // --- Trainer fields ---
+    TrainerType               trainer_type{TrainerType::Item}; // meaningful only when type == Trainer
 };
 
 } // namespace ptcgp_sim
