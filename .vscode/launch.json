@@ -6,7 +6,7 @@
             "type": "cppvsdbg",
             "request": "launch",
             "program": "${workspaceFolder}/build/bin/Debug/ptcgp_cli.exe",
-            "args": ["util", "--fetch_card", "A1 002"],
+            "args": ["util", "--validate_deck", "decks/altaria.json"],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [],

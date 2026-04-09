@@ -1,0 +1,19 @@
+{
+  "energy": ["Psychic"],
+  "cards": [
+    { "id": "A4a 064", "count": 2, "name": "Swablu" },
+    { "id": "B1 102",  "count": 2, "name": "Mega Altaria ex" },
+    { "id": "B1 106",  "count": 1, "name": "Jirachi" },
+    { "id": "B1 109",  "count": 2, "name": "Chingling" },
+    { "id": "B1 121",  "count": 1, "name": "Indeedee ex" },
+    { "id": "B1 197",  "count": 1, "name": "Altaria" },
+    { "id": "A1 225",  "count": 1, "name": "Sabrina" },
+    { "id": "A2 148",  "count": 2, "name": "Rocky Helmet" },
+    { "id": "A2 150",  "count": 1, "name": "Cyrus" },
+    { "id": "A2 155",  "count": 1, "name": "Mars" },
+    { "id": "A2b 111", "count": 1, "name": "Poke Ball" },
+    { "id": "A4b 373", "count": 2, "name": "Professor's Research" },
+    { "id": "B1 225",  "count": 1, "name": "Copycat" },
+    { "id": "B1 226",  "count": 2, "name": "Lisia" }
+  ]
+}

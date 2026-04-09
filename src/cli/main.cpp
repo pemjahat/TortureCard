@@ -7,34 +7,16 @@
 // Helpers
 // ---------------------------------------------------------------------------
 
-static const char* energy_type_name(ptcgp_sim::EnergyType e) 
-{
-    using E = ptcgp_sim::EnergyType;
-    switch (e) {
-        case E::Grass:     return "Grass";
-        case E::Fire:      return "Fire";
-        case E::Water:     return "Water";
-        case E::Lightning: return "Lightning";
-        case E::Psychic:   return "Psychic";
-        case E::Fighting:  return "Fighting";
-        case E::Darkness:  return "Darkness";
-        case E::Metal:     return "Metal";
-        case E::Dragon:    return "Dragon";
-        case E::Colorless: return "Colorless";
-        default:           return "Unknown";
-    }
-}
-
-static void print_card(const ptcgp_sim::Card& c) 
+static void print_card(const ptcgp_sim::Card& c)
 {
     std::cout << "  id          : " << c.id.to_string() << "  "
               << "(" << c.id.expansion << " / #" << c.id.number << ")\n"
               << "  name        : " << c.name << "\n"
               << "  hp          : " << c.hp   << "\n"
-              << "  energy type : " << energy_type_name(c.energy_type) << "\n";
+              << "  energy type : " << ptcgp_sim::energy_to_string(c.energy_type) << "\n";
 
     if (c.weakness)
-        std::cout << "  weakness    : " << energy_type_name(*c.weakness) << "\n";
+        std::cout << "  weakness    : " << ptcgp_sim::energy_to_string(*c.weakness) << "\n";
     else
         std::cout << "  weakness    : none\n";
 
@@ -48,7 +30,7 @@ static void print_card(const ptcgp_sim::Card& c)
         for (std::size_t i = 0; i < c.retreat_cost.size(); ++i) 
         {
             if (i) std::cout << ", ";
-            std::cout << energy_type_name(c.retreat_cost[i]);
+            std::cout << ptcgp_sim::energy_to_string(c.retreat_cost[i]);
         }
         std::cout << "\n";
     }
@@ -63,7 +45,8 @@ static int cmd_util(int argc, char* argv[])
     if (argc < 2) 
     {
         std::cerr << "util: no sub-option given\n"
-                  << "  --fetch_card <ID>   Print card details (e.g. \"A1 002\")\n";
+                  << "  --fetch_card <ID>           Print card details (e.g. \"A1 002\")\n"
+                  << "  --validate_deck <deck.json>  Validate a deck JSON file\n";
         return 1;
     }
 
@@ -99,6 +82,61 @@ static int cmd_util(int argc, char* argv[])
         return 0;
     }
 
+    if (opt == "--validate_deck")
+    {
+        if (argc < 3)
+        {
+            std::cerr << "util --validate_deck requires <deck.json>\n";
+            return 1;
+        }
+        const std::string deck_path = argv[2];
+
+        std::cout << "Loading database...\n";
+        ptcgp_sim::Database db = ptcgp_sim::Database::load();
+        std::cout << "Loaded " << db.size() << " cards.\n\n";
+
+        ptcgp_sim::Deck deck = ptcgp_sim::Deck::load_from_json(deck_path, db);
+
+        // Print summary
+        std::cout << "Energy    : ";
+        if (deck.energy_types.empty())
+        {
+            std::cout << "(none)";
+        }
+        else
+        {
+            for (std::size_t ei = 0; ei < deck.energy_types.size(); ++ei)
+            {
+                if (ei) std::cout << ", ";
+                std::cout << ptcgp_sim::energy_to_string(deck.energy_types[ei]);
+            }
+        }
+        std::cout << "\n";
+        std::cout << "Total cards: " << deck.total_cards() << "\n\n";
+
+        std::cout << "Cards:\n";
+        for (const auto& entry : deck.entries)
+        {
+            const ptcgp_sim::Card* card = db.find_by_id(entry.id);
+            std::string card_name = card ? card->name : "(unknown)";
+            std::cout << "  x" << entry.count
+                      << "  " << entry.id.to_string()
+                      << "  " << card_name << "\n";
+        }
+
+        // Validate
+        std::vector<std::string> errors;
+        bool valid = deck.validate(errors);
+        std::cout << "\nValidation: " << (valid ? "PASSED" : "FAILED") << "\n";
+        if (!valid)
+        {
+            for (const auto& err : errors)
+                std::cerr << "  [ERROR] " << err << "\n";
+            return 1;
+        }
+        return 0;
+    }
+
     std::cerr << "util: unknown option \"" << opt << "\"\n";
     return 1;
 }
@@ -116,7 +154,8 @@ int main(int argc, char* argv[])
         std::cout << "Usage: ptcgp_cli <command> [options]\n"
                   << "Commands:\n"
                   << "  sim   <deck1.json> <deck2.json> [--games N]  Run simulation\n"
-                  << "  util  --fetch_card <ID>                     Print card details\n";
+                  << "  util  --fetch_card <ID>                      Print card details\n"
+                  << "  util  --validate_deck <deck.json>            Validate a deck\n";
         return 0;
     }
 

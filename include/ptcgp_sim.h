@@ -4,6 +4,7 @@
 // Include this file when using the library from external code or FFI.
 
 #include "ptcgp_sim/card.h"
+#include "ptcgp_sim/common.h"
 #include "ptcgp_sim/database.h"
 #include "ptcgp_sim/deck.h"
 #include "ptcgp_sim/game_state.h"

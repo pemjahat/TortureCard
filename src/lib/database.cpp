@@ -1,10 +1,9 @@
-#define JSMN_STATIC
-#include "jsmn.h"
+#include "jsmn_helpers.h"
 
+#include "ptcgp_sim/common.h"
 #include "ptcgp_sim/database.h"
 
 #include <cassert>
-#include <cstring>
 #include <fstream>
 #include <iomanip>
 #include <sstream>
@@ -37,41 +36,6 @@ CardId Database::parse_id(const std::string& full_id)
     result.expansion = full_id.substr(0, pos);
     result.number    = std::stoi(full_id.substr(pos + 1));
     return result;
-}
-
-// ---------------------------------------------------------------------------
-// jsmn helpers
-// ---------------------------------------------------------------------------
-
-static std::string tok_str(const char* json, const jsmntok_t& t) 
-{
-    return std::string(json + t.start, t.end - t.start);
-}
-
-static bool tok_eq(const char* json, const jsmntok_t& t, const char* s) 
-{
-    int len = t.end - t.start;
-
-    return (int)strlen(s) == len && strncmp(json + t.start, s, len) == 0;
-}
-
-// ---------------------------------------------------------------------------
-// EnergyType parsing
-// ---------------------------------------------------------------------------
-
-static EnergyType parse_energy_type(const std::string& s) 
-{
-    if (s == "Grass")     return EnergyType::Grass;
-    if (s == "Fire")      return EnergyType::Fire;
-    if (s == "Water")     return EnergyType::Water;
-    if (s == "Lightning") return EnergyType::Lightning;
-    if (s == "Psychic")   return EnergyType::Psychic;
-    if (s == "Fighting")  return EnergyType::Fighting;
-    if (s == "Darkness")  return EnergyType::Darkness;
-    if (s == "Metal")     return EnergyType::Metal;
-    if (s == "Dragon")    return EnergyType::Dragon;
-    if (s == "Colorless") return EnergyType::Colorless;
-    return EnergyType::Unknown;
 }
 
 // ---------------------------------------------------------------------------
@@ -123,8 +87,8 @@ Database Database::load(const std::string& path)
         for (int kv = 0; kv < obj_size; ++kv) 
         {
             // Key: "Pokemon" or "Trainer"
-            bool is_pokemon = tok_eq(js, tokens[i], "Pokemon");
-            bool is_trainer = tok_eq(js, tokens[i], "Trainer");
+            bool is_pokemon = jsmn_tok_eq(js, tokens[i], "Pokemon");
+            bool is_trainer = jsmn_tok_eq(js, tokens[i], "Trainer");
             ++i; // move to value (inner object)
 
             if (!is_pokemon && !is_trainer) 
@@ -160,28 +124,28 @@ Database Database::load(const std::string& path)
                 if (i >= ntok) break;
                 const jsmntok_t& val = tokens[i];
 
-                if (tok_eq(js, key, "id")) 
+                if (jsmn_tok_eq(js, key, "id")) 
                 {
                     // Parse "A1 002" -> CardId{"A1", 2}
-                    card.id = Database::parse_id(tok_str(js, val));
+                    card.id = Database::parse_id(jsmn_tok_str(js, val));
                     ++i;
                 }
-                else if (tok_eq(js, key, "name")) 
+                else if (jsmn_tok_eq(js, key, "name")) 
                 {
-                    card.name = tok_str(js, val);
+                    card.name = jsmn_tok_str(js, val);
                     ++i;
                 } 
-                else if (tok_eq(js, key, "hp")) 
+                else if (jsmn_tok_eq(js, key, "hp")) 
                 {
-                    card.hp = std::stoi(tok_str(js, val));
+                    card.hp = std::stoi(jsmn_tok_str(js, val));
                     ++i;
                 } 
-                else if (tok_eq(js, key, "energy_type")) 
+                else if (jsmn_tok_eq(js, key, "energy_type")) 
                 {
-                    card.energy_type = parse_energy_type(tok_str(js, val));
+                    card.energy_type = energy_from_string(jsmn_tok_str(js, val));
                     ++i;
                 } 
-                else if (tok_eq(js, key, "weakness")) 
+                else if (jsmn_tok_eq(js, key, "weakness")) 
                 {
                     if (val.type == JSMN_PRIMITIVE && js[val.start] == 'n') 
                     {
@@ -189,11 +153,11 @@ Database Database::load(const std::string& path)
                     } 
                     else 
                     {
-                        card.weakness = parse_energy_type(tok_str(js, val));
+                        card.weakness = energy_from_string(jsmn_tok_str(js, val));
                     }
                     ++i;
                 } 
-                else if (tok_eq(js, key, "retreat_cost")) 
+                else if (jsmn_tok_eq(js, key, "retreat_cost"))
                 {
                     if (val.type == JSMN_ARRAY) 
                     {
@@ -202,8 +166,7 @@ Database Database::load(const std::string& path)
                         for (int a = 0; a < arr_size; ++a) 
                         {
                             if (i >= ntok) break;
-                            card.retreat_cost.push_back(
-                                parse_energy_type(tok_str(js, tokens[i])));
+                            card.retreat_cost.push_back(energy_from_string(jsmn_tok_str(js, tokens[i])));
                             ++i;
                         }
                     } 
