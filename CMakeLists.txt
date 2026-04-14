@@ -171,6 +171,10 @@ add_ptcgp_test(ptcgp_test_setup_hand
     "${CMAKE_SOURCE_DIR}/tests/test_setup_hand.cpp"
     SetupHandTests)
 
+add_ptcgp_test(ptcgp_test_effects
+    "${CMAKE_SOURCE_DIR}/tests/test_effect_resolution.cpp"
+    EffectResolutionTests)
+
 # ---------------------------------------------------------------------------
 # Summary
 # ---------------------------------------------------------------------------
