@@ -1,5 +1,5 @@
 // Unit tests for Deck::validate().
-// Uses assert-based testing — no external framework required.
+// Uses try/catch-based testing — no external framework required.
 // Build target: ptcgp_test_deck (added in CMakeLists.txt)
 
 #include "ptcgp_sim/card.h"
@@ -7,10 +7,37 @@
 #include "ptcgp_sim/deck.h"
 
 #include <algorithm>
-#include <cassert>
 #include <iostream>
+#include <stdexcept>
 #include <string>
 #include <vector>
+
+// ---------------------------------------------------------------------------
+// Test infrastructure
+// ---------------------------------------------------------------------------
+
+// Macro that throws with file, line, and expression on failure.
+#define REQUIRE(expr)                                                         \
+    do {                                                                      \
+        if (!(expr)) {                                                        \
+            throw std::runtime_error(                                         \
+                std::string(__FILE__) + ":" + std::to_string(__LINE__) +      \
+                " — REQUIRE failed: " #expr);                                 \
+        }                                                                     \
+    } while (false)
+
+static int g_failures = 0;
+
+#define RUN_TEST(func)                                                        \
+    do {                                                                      \
+        try {                                                                 \
+            func();                                                           \
+        } catch (const std::exception& e) {                                   \
+            std::cerr << "  [FAIL] " #func "\n"                               \
+                      << "         " << e.what() << "\n";                     \
+            ++g_failures;                                                     \
+        }                                                                     \
+    } while (false)
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -68,8 +95,8 @@ static void test_valid_deck_passes()
     std::vector<std::string> errors;
     bool result = deck.validate(errors);
 
-    assert(result == true);
-    assert(errors.empty());
+    REQUIRE(result == true);
+    REQUIRE(errors.empty());
 
     std::cout << "  [PASS] test_valid_deck_passes\n";
 }
@@ -88,12 +115,12 @@ static void test_too_few_cards_fails()
     std::vector<std::string> errors;
     bool result = deck.validate(errors);
 
-    assert(result == false);
-    assert(!errors.empty());
+    REQUIRE(result == false);
+    REQUIRE(!errors.empty());
     // Error message should mention the actual count
     bool mentions_count = std::any_of(errors.begin(), errors.end(),
         [](const std::string& e){ return e.find("15") != std::string::npos; });
-    assert(mentions_count);
+    REQUIRE(mentions_count);
 
     std::cout << "  [PASS] test_too_few_cards_fails\n";
 }
@@ -112,11 +139,11 @@ static void test_too_many_cards_fails()
     std::vector<std::string> errors;
     bool result = deck.validate(errors);
 
-    assert(result == false);
-    assert(!errors.empty());
+    REQUIRE(result == false);
+    REQUIRE(!errors.empty());
     bool mentions_count = std::any_of(errors.begin(), errors.end(),
         [](const std::string& e){ return e.find("25") != std::string::npos; });
-    assert(mentions_count);
+    REQUIRE(mentions_count);
 
     std::cout << "  [PASS] test_too_many_cards_fails\n";
 }
@@ -135,8 +162,8 @@ static void test_missing_energy_type_fails()
     std::vector<std::string> errors;
     bool result = deck.validate(errors);
 
-    assert(result == false);
-    assert(!errors.empty());
+    REQUIRE(result == false);
+    REQUIRE(!errors.empty());
 
     std::cout << "  [PASS] test_missing_energy_type_fails\n";
 }
@@ -155,8 +182,8 @@ static void test_multiple_errors_all_reported()
     std::vector<std::string> errors;
     bool result = deck.validate(errors);
 
-    assert(result == false);
-    assert(errors.size() >= 2); // both errors must be present
+    REQUIRE(result == false);
+    REQUIRE(errors.size() >= 2); // both errors must be present
 
     std::cout << "  [PASS] test_multiple_errors_all_reported\n";
 }
@@ -174,8 +201,8 @@ static void test_is_valid_mirrors_validate()
     auto good_deck = make_deck(repeat_card(bulbasaur, 20), {EnergyType::Grass});
     auto bad_deck  = make_deck(repeat_card(bulbasaur, 5),  {});
 
-    assert(good_deck.is_valid()  == true);
-    assert(bad_deck.is_valid()   == false);
+    REQUIRE(good_deck.is_valid()  == true);
+    REQUIRE(bad_deck.is_valid()   == false);
 
     std::cout << "  [PASS] test_is_valid_mirrors_validate\n";
 }
@@ -198,10 +225,10 @@ static void test_total_cards_counts_entries()
 
     auto deck = make_deck(cards, {EnergyType::Grass, EnergyType::Fire});
 
-    assert(deck.total_cards() == 20);
+    REQUIRE(deck.total_cards() == 20);
 
     std::vector<std::string> errors;
-    assert(deck.validate(errors) == true);
+    REQUIRE(deck.validate(errors) == true);
 
     std::cout << "  [PASS] test_total_cards_counts_entries\n";
 }
@@ -214,14 +241,14 @@ static void test_database_loads(ptcgp_sim::Database& out_db)
 {
     out_db = ptcgp_sim::Database::load();
 
-    assert(out_db.size() > 0);
+    REQUIRE(out_db.size() > 0);
 
     // Bulbasaur (A1 001) must exist
     ptcgp_sim::CardId bulbasaur_id{"A1", 1};
     const ptcgp_sim::Card* card = out_db.find_by_id(bulbasaur_id);
-    assert(card != nullptr);
-    assert(card->name == "Bulbasaur");
-    assert(card->type == ptcgp_sim::CardType::Pokemon);
+    REQUIRE(card != nullptr);
+    REQUIRE(card->name == "Bulbasaur");
+    REQUIRE(card->type == ptcgp_sim::CardType::Pokemon);
 
     std::cout << "  [PASS] test_database_loads (" << out_db.size() << " cards)\n";
 }
@@ -235,22 +262,22 @@ static void test_load_from_database(const ptcgp_sim::Database& db)
     ptcgp_sim::Deck deck = ptcgp_sim::Deck::load_from_json(PTCGP_TEST_DECK_PATH, db);
 
     // Deck should have exactly 20 cards
-    assert(deck.total_cards() == 20);
+    REQUIRE(deck.total_cards() == 20);
 
     // Energy type should be Grass
-    assert(!deck.energy_types.empty());
-    assert(deck.energy_types[0] == ptcgp_sim::EnergyType::Grass);
+    REQUIRE(!deck.energy_types.empty());
+    REQUIRE(deck.energy_types[0] == ptcgp_sim::EnergyType::Grass);
 
     // All 20 cards should be Bulbasaur
-    assert(deck.cards.size() == 20);
+    REQUIRE(deck.cards.size() == 20);
     for (const auto& c : deck.cards)
-        assert(c.name == "Bulbasaur");
+        REQUIRE(c.name == "Bulbasaur");
 
     // Full validation must pass
     std::vector<std::string> errors;
     bool valid = deck.validate(errors);
-    assert(valid);
-    assert(errors.empty());
+    REQUIRE(valid);
+    REQUIRE(errors.empty());
 
     std::cout << "  [PASS] test_load_from_database\n";
 }
@@ -264,20 +291,37 @@ int main()
     std::cout << "=== ptcgp_sim deck validation tests ===\n";
 
     // In-memory tests (no database required)
-    test_valid_deck_passes();
-    test_too_few_cards_fails();
-    test_too_many_cards_fails();
-    test_missing_energy_type_fails();
-    test_multiple_errors_all_reported();
-    test_is_valid_mirrors_validate();
-    test_total_cards_counts_entries();
+    RUN_TEST(test_valid_deck_passes);
+    RUN_TEST(test_too_few_cards_fails);
+    RUN_TEST(test_too_many_cards_fails);
+    RUN_TEST(test_missing_energy_type_fails);
+    RUN_TEST(test_multiple_errors_all_reported);
+    RUN_TEST(test_is_valid_mirrors_validate);
+    RUN_TEST(test_total_cards_counts_entries);
 
     // Database-loading tests (require database.json to be present)
     std::cout << "\n  Loading database from: " PTCGP_DATABASE_PATH "\n";
     ptcgp_sim::Database db;
-    test_database_loads(db);
-    test_load_from_database(db);
+    try {
+        test_database_loads(db);
+    } catch (const std::exception& e) {
+        std::cerr << "  [FAIL] test_database_loads\n"
+                  << "         " << e.what() << "\n";
+        ++g_failures;
+    }
+    try {
+        test_load_from_database(db);
+    } catch (const std::exception& e) {
+        std::cerr << "  [FAIL] test_load_from_database\n"
+                  << "         " << e.what() << "\n";
+        ++g_failures;
+    }
 
-    std::cout << "\nAll tests passed.\n";
-    return 0;
+    std::cout << "\n";
+    if (g_failures == 0) {
+        std::cout << "All tests passed.\n";
+    } else {
+        std::cerr << g_failures << " test(s) FAILED.\n";
+    }
+    return g_failures > 0 ? 1 : 0;
 }
