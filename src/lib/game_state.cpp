@@ -1,10 +1,25 @@
 #include "ptcgp_sim/game_state.h"
 
+#include <cassert>
+#include <random>
+
 // GameState, PlayerState, and InPlayPokemon are fully defined as inline
-// structs/methods in game_state.h.  This translation unit exists to satisfy
-// the CMake GLOB_RECURSE that collects all src/lib/*.cpp files into the
-// static library.  Any non-inline helper implementations can be added here.
+// structs/methods in game_state.h.  Out-of-line helper implementations live here.
 
 namespace ptcgp_sim {
-// (no out-of-line definitions required at this time)
+
+// ---------------------------------------------------------------------------
+// GameState::deal_starting_hands
+// ---------------------------------------------------------------------------
+
+void GameState::deal_starting_hands(std::mt19937& rng)
+{
+    // Guard against double-dealing
+    assert(players[0].hand.empty() && players[1].hand.empty()
+           && "deal_starting_hands: players already have cards in hand");
+
+    for (int p = 0; p < 2; ++p)
+        players[p].hand = players[p].deck.deal_starting_hand(rng);
+}
+
 } // namespace ptcgp_sim

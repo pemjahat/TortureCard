@@ -3,8 +3,10 @@
 #include "ptcgp_sim/common.h"
 #include "ptcgp_sim/deck.h"
 
+#include <algorithm>
 #include <cassert>
 #include <fstream>
+#include <random>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -201,6 +203,59 @@ int Deck::total_cards() const
     for (const auto& e : entries)
         total += e.count;
     return total;
+}
+
+// ---------------------------------------------------------------------------
+// Deck::shuffle
+// ---------------------------------------------------------------------------
+
+void Deck::shuffle(std::mt19937& rng)
+{
+    std::shuffle(cards.begin(), cards.end(), rng);
+}
+
+// ---------------------------------------------------------------------------
+// Deck::deal_starting_hand
+// ---------------------------------------------------------------------------
+
+static bool is_stage0_pokemon(const Card& c)
+{
+    return c.type == CardType::Pokemon && c.stage == 0;
+}
+
+std::vector<Card> Deck::deal_starting_hand(std::mt19937& rng)
+{
+    const int HAND_SIZE = 5;
+    assert(static_cast<int>(cards.size()) >= HAND_SIZE
+           && "deal_starting_hand: deck has fewer than 5 cards");
+
+    // Collect indices of all stage-0 Pokemon in the deck
+    std::vector<std::size_t> basic_indices;
+    for (std::size_t i = 0; i < cards.size(); ++i)
+        if (is_stage0_pokemon(cards[i]))
+            basic_indices.push_back(i);
+
+    assert(!basic_indices.empty() && "deal_starting_hand: deck contains no stage-0 Pokemon");
+
+    // 1. Randomly pick one basic Pokemon from the pool — guaranteed hand[0]
+    std::uniform_int_distribution<std::size_t> pick(0, basic_indices.size() - 1);
+    std::size_t chosen_idx = basic_indices[pick(rng)];
+    Card first_card = cards[chosen_idx];
+
+    // Remove the chosen basic from the deck so it isn't drawn again
+    cards.erase(cards.begin() + static_cast<std::ptrdiff_t>(chosen_idx));
+
+    // 2. Shuffle the remaining 19 cards and draw 4 from the top
+    shuffle(rng);
+
+    std::vector<Card> hand;
+    hand.reserve(HAND_SIZE);
+    hand.push_back(first_card);
+    for (int i = 0; i < HAND_SIZE - 1; ++i)
+        hand.push_back(cards[static_cast<std::size_t>(i)]);
+    cards.erase(cards.begin(), cards.begin() + (HAND_SIZE - 1));
+
+    return hand;
 }
 
 } // namespace ptcgp_sim

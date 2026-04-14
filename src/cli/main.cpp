@@ -1,6 +1,7 @@
 #include "ptcgp_sim.h"
 #include <cassert>
 #include <iostream>
+#include <random>
 #include <string>
 #include <algorithm>
 
@@ -175,8 +176,10 @@ static int cmd_util(int argc, char* argv[])
             return 1;
         }
 
-        // Initialize game state
+        // Initialize game state and deal valid starting hands
         ptcgp_sim::GameState gs = ptcgp_sim::GameState::make(deck0, deck1);
+        std::mt19937 rng(std::random_device{}());
+        gs.deal_starting_hands(rng);
 
         // Print game state summary
         std::cout << "=== Game State Initialized ===\n";
@@ -235,19 +238,10 @@ static int cmd_util(int argc, char* argv[])
             return 1;
         }
 
-        // Build a fresh game state in Setup phase
+        // Build a fresh game state in Setup phase and deal valid starting hands
         ptcgp_sim::GameState gs = ptcgp_sim::GameState::make(deck0, deck1);
-
-        // Deal 5 cards to each player
-        for (int p = 0; p < 2; ++p)
-        {
-            auto& player = gs.players[p];
-            for (int i = 0; i < 5 && !player.deck.cards.empty(); ++i)
-            {
-                player.hand.push_back(player.deck.cards.back());
-                player.deck.cards.pop_back();
-            }
-        }
+        std::mt19937 rng(std::random_device{}());
+        gs.deal_starting_hands(rng);
 
         // Helper: trainer type label
         auto trainer_type_str = [](ptcgp_sim::TrainerType tt) -> const char*

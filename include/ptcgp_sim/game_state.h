@@ -4,6 +4,7 @@
 #include "deck.h"
 #include <array>
 #include <optional>
+#include <random>
 #include <string>
 #include <vector>
 
@@ -187,6 +188,11 @@ struct GameState
             default:                 return "Unknown";
         }
     }
+
+    // Shuffle both players' decks and deal each player a valid 5-card starting
+    // hand (at least one stage-0 Pokemon) using Deck::deal_starting_hand().
+    // Asserts if either player already has cards in hand (prevents double-dealing).
+    void deal_starting_hands(std::mt19937& rng);
 };
 
 } // namespace ptcgp_sim
