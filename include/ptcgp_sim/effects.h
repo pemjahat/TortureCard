@@ -40,4 +40,9 @@ void resolve_knockouts(GameState& gs, int attacking_player);
 // then shuffle the deck.  Returns true if a card was found.
 bool search_basic_to_hand(GameState& gs, int player, std::mt19937& rng);
 
+// Evolve the Pokemon in `slot_index` of `player` using `evolution_card` from hand.
+// Preserves energy, tool, and damage counters; builds the cards_behind chain;
+// clears volatile status conditions on the evolved Pokemon.
+void apply_evolve(GameState& gs, int player, const CardId& evolution_card_id, int slot_index);
+
 } // namespace ptcgp_sim

@@ -74,6 +74,7 @@ struct Card
     std::optional<EnergyType> weakness;
     std::vector<EnergyType>   retreat_cost;
     int                       stage{0};       // 0 = Basic, 1 = Stage 1, 2 = Stage 2
+    std::optional<std::string> evolves_from{}; // name of the pre-evolution (nullopt for Basic)
     std::vector<Attack>       attacks;
 
     // --- Trainer fields ---

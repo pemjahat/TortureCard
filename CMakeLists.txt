@@ -175,6 +175,10 @@ add_ptcgp_test(ptcgp_test_effects
     "${CMAKE_SOURCE_DIR}/tests/test_effect_resolution.cpp"
     EffectResolutionTests)
 
+add_ptcgp_test(ptcgp_test_evolution
+    "${CMAKE_SOURCE_DIR}/tests/test_evolution.cpp"
+    EvolutionTests)
+
 # ---------------------------------------------------------------------------
 # Summary
 # ---------------------------------------------------------------------------

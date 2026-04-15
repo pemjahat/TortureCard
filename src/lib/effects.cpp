@@ -132,6 +132,10 @@ void resolve_knockouts(GameState& gs, int attacking_player)
 
         InPlayPokemon& ip = *slot;
 
+        // Move all lower-stage cards (evolution chain) to discard pile first
+        for (const Card& behind : ip.cards_behind)
+            gs.players[ko_player].discard_pile.push_back(behind);
+
         // Move Pokemon card to discard pile
         gs.players[ko_player].discard_pile.push_back(ip.card);
 
@@ -389,6 +393,16 @@ void apply_action(GameState& gs, const Action& action, std::mt19937& rng)
         }
 
         // ---------------------------------------------------------------
+        // ---------------------------------------------------------------
+        // Evolve — play an evolution card from hand onto an in-play Pokemon
+        // ---------------------------------------------------------------
+        case ActionType::Evolve:
+        {
+            apply_evolve(gs, player, action.card_id, action.slot_index);
+            break;
+        }
+
+        // ---------------------------------------------------------------
         // Pass / Draw — no state mutation needed here
         // ---------------------------------------------------------------
         case ActionType::Pass:
@@ -396,6 +410,55 @@ void apply_action(GameState& gs, const Action& action, std::mt19937& rng)
         default:
             break;
     }
+}
+
+// ---------------------------------------------------------------------------
+// apply_evolve
+// ---------------------------------------------------------------------------
+
+void apply_evolve(GameState& gs, int player, const CardId& evolution_card_id, int slot_index)
+{
+    auto& hand = gs.players[player].hand;
+    auto& target_slot = gs.players[player].pokemon_slots[slot_index];
+
+    // Find the evolution card in hand
+    auto it = std::find_if(hand.begin(), hand.end(),
+        [&](const Card& c){ return c.id == evolution_card_id; });
+    assert(it != hand.end() && "apply_evolve: evolution card not found in hand");
+    Card evolution_card = *it;
+
+    // Validate target slot
+    assert(target_slot.has_value() && "apply_evolve: target slot is empty");
+    InPlayPokemon& from = *target_slot;
+
+    assert(!from.played_this_turn &&
+           "apply_evolve: cannot evolve a Pokemon that was placed this turn");
+    assert(evolution_card.stage > 0 &&
+           "apply_evolve: evolution card must be Stage 1 or higher");
+    assert(evolution_card.evolves_from.has_value() &&
+           evolution_card.evolves_from.value() == from.card.name &&
+           "apply_evolve: evolution card does not evolve from the target Pokemon");
+    assert(evolution_card.stage == from.card.stage + 1 &&
+           "apply_evolve: stage must increase by exactly 1");
+
+    // Build the new InPlayPokemon
+    InPlayPokemon evolved;
+    evolved.card             = evolution_card;
+    evolved.damage_counters  = from.damage_counters;
+    evolved.attached_energy  = from.attached_energy;
+    evolved.attached_tool    = from.attached_tool;
+    evolved.played_this_turn = false; // evolution does not count as "placed this turn"
+    // status is default None — evolution cures volatile status conditions
+
+    // Build cards_behind: old chain + the pre-evolution top card
+    evolved.cards_behind = from.cards_behind;
+    evolved.cards_behind.push_back(from.card);
+
+    // Replace the slot
+    target_slot = evolved;
+
+    // Remove the evolution card from hand
+    hand.erase(it);
 }
 
 } // namespace ptcgp_sim

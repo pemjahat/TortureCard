@@ -175,9 +175,90 @@ Database Database::load(const std::string& path)
                         ++i;
                     }
                 } 
-                else 
+                else if (jsmn_tok_eq(js, key, "stage"))
                 {
-                    // Skip unknown field value (may be object/array subtree)
+                    card.stage = std::stoi(jsmn_tok_str(js, val));
+                    ++i;
+                }
+                else if (jsmn_tok_eq(js, key, "evolves_from"))
+                {
+                    if (val.type == JSMN_PRIMITIVE && js[val.start] == 'n')
+                    {
+                        card.evolves_from = std::nullopt;
+                    }
+                    else
+                    {
+                        card.evolves_from = jsmn_tok_str(js, val);
+                    }
+                    ++i;
+                }
+                else if (jsmn_tok_eq(js, key, "attacks"))
+                {
+                    if (val.type == JSMN_ARRAY)
+                    {
+                        int atk_arr_size = val.size;
+                        ++i; // move past the array token
+                        for (int a = 0; a < atk_arr_size; ++a)
+                        {
+                            if (i >= ntok) break;
+                            // Each attack is an object
+                            if (tokens[i].type != JSMN_OBJECT) { ++i; continue; }
+                            int atk_obj_size = tokens[i].size;
+                            ++i;
+                            Attack atk;
+                            for (int af = 0; af < atk_obj_size; ++af)
+                            {
+                                if (i >= ntok) break;
+                                const jsmntok_t& akey = tokens[i]; ++i;
+                                if (i >= ntok) break;
+                                const jsmntok_t& aval = tokens[i];
+                                if (jsmn_tok_eq(js, akey, "name"))
+                                {
+                                    atk.name = jsmn_tok_str(js, aval);
+                                    ++i;
+                                }
+                                else if (jsmn_tok_eq(js, akey, "damage"))
+                                {
+                                    atk.damage = std::stoi(jsmn_tok_str(js, aval));
+                                    ++i;
+                                }
+                                else if (jsmn_tok_eq(js, akey, "energy_required"))
+                                {
+                                    if (aval.type == JSMN_ARRAY)
+                                    {
+                                        int ecnt = aval.size;
+                                        ++i;
+                                        for (int e = 0; e < ecnt; ++e)
+                                        {
+                                            if (i >= ntok) break;
+                                            atk.energy_required.push_back(
+                                                energy_from_string(jsmn_tok_str(js, tokens[i])));
+                                            ++i;
+                                        }
+                                    }
+                                    else { ++i; }
+                                }
+                                else
+                                {
+                                    // Skip unknown attack field
+                                    if (aval.type == JSMN_OBJECT || aval.type == JSMN_ARRAY)
+                                    {
+                                        int end = aval.end; ++i;
+                                        while (i < ntok && tokens[i].start < end) ++i;
+                                    }
+                                    else { ++i; }
+                                }
+                            }
+                            card.attacks.push_back(std::move(atk));
+                        }
+                    }
+                    else
+                    {
+                        ++i;
+                    }
+                }
+                else
+                {
                     if (val.type == JSMN_OBJECT || val.type == JSMN_ARRAY) 
                     {
                         int end = val.end;

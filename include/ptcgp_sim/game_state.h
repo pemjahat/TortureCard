@@ -47,6 +47,7 @@ struct InPlayPokemon
     StatusCondition status{StatusCondition::None}; // Current status condition
     bool            played_this_turn{true};        // True if placed on mat this turn
     std::optional<Card> attached_tool{};           // Tool card attached to this Pokemon (if any)
+    std::vector<Card>   cards_behind{};            // Lower-stage cards stacked under this one (evolution chain)
 
     // Convenience: remaining HP = base hp - damage_counters
     int remaining_hp() const

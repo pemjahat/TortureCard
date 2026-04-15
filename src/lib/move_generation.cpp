@@ -132,6 +132,42 @@ std::vector<Action> generate_legal_moves(const GameState& gs, int player)
         }
     }
 
+    // --- Evolve (Stage 1 / Stage 2 from hand onto matching in-play Pokemon) ---
+    // Rules: not on the player's first turn (turn_number == 1 for player 0,
+    //        turn_number == 2 for player 1), and target must not have been
+    //        placed this turn.
+    {
+        // Determine if this is the current player's first turn.
+        // Player 0 acts on odd turns (1, 3, 5...), player 1 on even turns (2, 4, 6...).
+        // First turn for player 0 = turn_number 1; for player 1 = turn_number 2.
+        bool is_first_turn = (player == 0)
+                                 ? (gs.turn_number == 1)
+                                 : (gs.turn_number == 2);
+
+        if (!is_first_turn)
+        {
+            for (const Card& c : hand)
+            {
+                if (c.type != CardType::Pokemon) continue;
+                if (c.stage == 0) continue; // only Stage 1 / Stage 2
+                if (!c.evolves_from.has_value()) continue;
+
+                for (int i = 0; i <= 3; ++i)
+                {
+                    if (!slots[i].has_value()) continue;
+                    const InPlayPokemon& ip = *slots[i];
+                    if (ip.played_this_turn) continue;
+                    // Stage must increase by exactly 1
+                    if (c.stage != ip.card.stage + 1) continue;
+                    // evolves_from name must match
+                    if (c.evolves_from.value() != ip.card.name) continue;
+
+                    moves.push_back(Action::evolve(c.id, i));
+                }
+            }
+        }
+    }
+
     // --- AttachEnergy (once per turn, energy generation starts turn 2) ---
     if (!gs.energy_attached_this_turn && gs.current_energy.has_value())
     {
