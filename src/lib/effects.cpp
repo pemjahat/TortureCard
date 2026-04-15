@@ -143,11 +143,14 @@ void resolve_knockouts(GameState& gs, int attacking_player)
         if (ip.attached_tool.has_value())
             gs.players[ko_player].discard_pile.push_back(*ip.attached_tool);
 
+        // Award prize points: 1 for regular, 2 for ex, 3 for Mega
+        const int pts = ip.card.knockout_points();
+
         // Clear the slot
         slot = std::nullopt;
 
-        // Award 1 prize point to the opponent
-        gs.players[point_winner].points += 1;
+        // Award prize points to the opponent
+        gs.players[point_winner].points += pts;
     }
 
     // Check win conditions after all KOs are processed

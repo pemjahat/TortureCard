@@ -79,6 +79,38 @@ struct Card
 
     // --- Trainer fields ---
     TrainerType               trainer_type{TrainerType::Item}; // meaningful only when type == Trainer
+
+    // --- Classification helpers ---
+
+    // Returns true if this is a Pokemon whose name ends with " ex"
+    // (e.g. "Mewtwo ex", "Charizard ex").  Always false for non-Pokemon cards.
+    bool is_ex() const
+    {
+        if (type != CardType::Pokemon) return false;
+        const std::string suffix = " ex";
+        if (name.size() <= suffix.size()) return false;
+        return name.compare(name.size() - suffix.size(), suffix.size(), suffix) == 0;
+    }
+
+    // Returns true if this is a Pokemon whose name starts with "Mega "
+    // (e.g. "Mega Charizard", "Mega Mewtwo").  Always false for non-Pokemon cards.
+    bool is_mega() const
+    {
+        if (type != CardType::Pokemon) return false;
+        const std::string prefix = "Mega ";
+        if (name.size() <= prefix.size()) return false;
+        return name.compare(0, prefix.size(), prefix) == 0;
+    }
+
+    // Returns the number of prize points awarded to the opponent when this
+    // Pokemon is knocked out: 3 for Mega, 2 for ex, 1 for regular, 0 for Trainers.
+    int knockout_points() const
+    {
+        if (type != CardType::Pokemon) return 0;
+        if (is_mega()) return 3;
+        if (is_ex())   return 2;
+        return 1;
+    }
 };
 
 } // namespace ptcgp_sim
