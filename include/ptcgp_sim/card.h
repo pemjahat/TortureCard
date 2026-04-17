@@ -1,5 +1,7 @@
 #pragma once
 
+#include "mechanic.h"
+#include <memory>
 #include <optional>
 #include <string>
 #include <vector>
@@ -57,9 +59,43 @@ struct CardId
 // A single attack on a Pokemon card
 struct Attack
 {
-    std::string            name;
-    std::vector<EnergyType> energy_required; // energy cost to use this attack
-    int                    damage{0};        // base damage dealt
+    std::string             name;
+    std::vector<EnergyType> energy_required;           // energy cost to use this attack
+    int                     damage{0};                 // base fixed damage dealt
+    std::optional<std::string> effect{};               // raw effect text from database.json
+
+    // Resolved mechanic — nullptr means BasicDamage (use fixed damage only).
+    std::unique_ptr<Mechanic> mechanic{};
+
+    // Default constructor
+    Attack() = default;
+
+    // Copy constructor — deep-copies the mechanic via clone()
+    Attack(const Attack& other)
+        : name(other.name)
+        , energy_required(other.energy_required)
+        , damage(other.damage)
+        , effect(other.effect)
+        , mechanic(other.mechanic ? other.mechanic->clone() : nullptr)
+    {}
+
+    // Copy assignment
+    Attack& operator=(const Attack& other)
+    {
+        if (this != &other)
+        {
+            name             = other.name;
+            energy_required  = other.energy_required;
+            damage           = other.damage;
+            effect           = other.effect;
+            mechanic         = other.mechanic ? other.mechanic->clone() : nullptr;
+        }
+        return *this;
+    }
+
+    // Move constructor / assignment — default is fine (unique_ptr moves cleanly)
+    Attack(Attack&&) noexcept = default;
+    Attack& operator=(Attack&&) noexcept = default;
 };
 
 struct Card 

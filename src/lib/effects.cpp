@@ -5,6 +5,8 @@
 
 #include <algorithm>
 #include <cassert>
+#include <iostream>
+#include <random>
 
 namespace ptcgp_sim
 {
@@ -57,7 +59,7 @@ bool search_basic_to_hand(GameState& gs, int player, std::mt19937& rng)
 // apply_attack_damage
 // ---------------------------------------------------------------------------
 
-int apply_attack_damage(GameState& gs, int attacker_player, int attack_index)
+int apply_attack_damage(GameState& gs, int attacker_player, int attack_index, std::mt19937& rng)
 {
     const int defender_player = (attacker_player + 1) % 2;
 
@@ -76,9 +78,24 @@ int apply_attack_damage(GameState& gs, int attacker_player, int attack_index)
 
     const Attack& atk = attacker.card.attacks[attack_index];
 
-    int damage = atk.damage;
+    // -----------------------------------------------------------------------
+    // Compute raw damage via virtual dispatch
+    // -----------------------------------------------------------------------
+    int damage = 0;
 
-    // Weakness: +20 if defender's weakness matches attacker's energy type
+    if (!atk.mechanic)
+    {
+        // No mechanic resolved — use fixed damage (BasicDamage behaviour)
+        damage = atk.damage;
+    }
+    else
+    {
+        damage = atk.mechanic->compute_damage(atk.damage, rng);
+    }
+
+    // -----------------------------------------------------------------------
+    // Apply weakness: +20 if defender's weakness matches attacker's energy type
+    // -----------------------------------------------------------------------
     if (damage > 0 &&
         defender.card.weakness.has_value() &&
         *defender.card.weakness == attacker.card.energy_type)
@@ -91,6 +108,14 @@ int apply_attack_damage(GameState& gs, int attacker_player, int attack_index)
     {
         int new_counters = defender.damage_counters + damage;
         defender.damage_counters = std::min(new_counters, defender.card.hp);
+    }
+
+    // -----------------------------------------------------------------------
+    // Post-damage effects (e.g. SelfHeal) via virtual dispatch
+    // -----------------------------------------------------------------------
+    if (atk.mechanic)
+    {
+        atk.mechanic->apply_post_damage(attacker);
     }
 
     return damage;
@@ -224,7 +249,7 @@ void apply_action(GameState& gs, const Action& action, std::mt19937& rng)
             assert(gs.players[player].pokemon_slots[0].has_value() &&
                    "apply_action: no active Pokemon to attack with");
 
-            apply_attack_damage(gs, player, action.attack_index);
+            apply_attack_damage(gs, player, action.attack_index, rng);
             resolve_knockouts(gs, player);
 
             gs.attacked_this_turn = true;

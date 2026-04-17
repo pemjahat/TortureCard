@@ -254,7 +254,8 @@ static void test_attack_damage_capped_at_hp()
     GameState gs = make_game(attacker, defender);
 
     // Verify cap by calling apply_attack_damage directly (does not resolve KO)
-    int damage_applied = apply_attack_damage(gs, 0, 0);
+    std::mt19937 rng_cap(42);
+    int damage_applied = apply_attack_damage(gs, 0, 0, rng_cap);
 
     // damage_counters must not exceed hp (60), even though attack does 200
     REQUIRE(gs.players[1].pokemon_slots[0].has_value());

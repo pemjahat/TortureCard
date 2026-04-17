@@ -183,6 +183,10 @@ add_ptcgp_test(ptcgp_test_ex_mega
     "${CMAKE_SOURCE_DIR}/tests/test_ex_mega_points.cpp"
     ExMegaPointsTests)
 
+add_ptcgp_test(ptcgp_test_attack_effects
+    "${CMAKE_SOURCE_DIR}/tests/test_attack_effects.cpp"
+    AttackEffectMechanicTests)
+
 # ---------------------------------------------------------------------------
 # Summary
 # ---------------------------------------------------------------------------

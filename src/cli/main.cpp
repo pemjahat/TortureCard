@@ -50,11 +50,18 @@ static int cmd_util(int argc, char* argv[])
                   << "  --fetch_card <ID>                         Print card details (e.g. \"A1 002\")\n"
                   << "  --validate_deck <deck.json>               Validate a deck JSON file\n"
                   << "  --simulate_turn <deck1.json> <deck2.json> Initialize a GameState and print summary\n"
-                  << "  --dump_moves    <deck1.json> <deck2.json> Print game state and all legal moves\n";
+                  << "  --dump_moves    <deck1.json> <deck2.json> Print game state and all legal moves\n"
+                  << "  --build_dictionary                        (Re)build mechanic dictionary files\n";
         return 1;
     }
 
     std::string opt = argv[1];
+
+    if (opt == "--build_dictionary")
+    {
+        bool ok = ptcgp_sim::Database::build_dictionaries();
+        return ok ? 0 : 1;
+    }
 
     if (opt == "--fetch_card") 
     {
@@ -440,7 +447,8 @@ int main(int argc, char* argv[])
                   << "  util  --fetch_card <ID>                      Print card details\n"
                   << "  util  --validate_deck <deck.json>            Validate a deck\n"
                   << "  util  --simulate_turn <d1.json> <d2.json>    Initialize and print game state\n"
-                  << "  util  --dump_moves    <d1.json> <d2.json>    Print game state + legal moves\n";
+                  << "  util  --dump_moves    <d1.json> <d2.json>    Print game state + legal moves\n"
+                  << "  util  --build_dictionary                     (Re)build mechanic dictionary files\n";
         return 0;
     }
 

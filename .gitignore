@@ -1,8 +1,7 @@
 # Build directories
 build/
 ThirdParty/
-build_log.txt
-build_output.txt
+build*.txt
 
 # CMake generated
 !CMakeLists.txt

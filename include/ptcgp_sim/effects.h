@@ -29,8 +29,9 @@ void apply_action(GameState& gs, const Action& action, std::mt19937& rng);
 
 // Apply base attack damage (with weakness) from `attacker_player`'s active
 // Pokemon to `defender_player`'s active Pokemon.
+// `rng` is used for coin-flip mechanics.
 // Returns the final damage applied (after weakness, before cap).
-int apply_attack_damage(GameState& gs, int attacker_player, int attack_index);
+int apply_attack_damage(GameState& gs, int attacker_player, int attack_index, std::mt19937& rng);
 
 // Scan all in-play Pokemon for knockouts, discard them, award points,
 // and update game_over / winner.  Called after any damage step.
