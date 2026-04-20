@@ -9,14 +9,21 @@
 #  define PTCGP_DATABASE_PATH "database/database.json"
 #endif
 
-// Default paths for the two intermediate dictionary files (relative to the
+// Default paths for the intermediate dictionary files (relative to the
 // directory that contains database.json).
-#ifndef PTCGP_MECHANIC_DICT_PATH
-#  define PTCGP_MECHANIC_DICT_PATH "database/mechanic_dictionary.json"
+// attack_mechanic_dictionary.json  — effect text -> AttackMechanic type + params
+#ifndef PTCGP_ATTACK_MECHANIC_DICT_PATH
+#  define PTCGP_ATTACK_MECHANIC_DICT_PATH "database/attack_mechanic_dictionary.json"
 #endif
 
-#ifndef PTCGP_ATTACK_DICT_PATH
-#  define PTCGP_ATTACK_DICT_PATH "database/attack_mechanic_dictionary.json"
+// ability_mechanic_dictionary.json  — ability effect text -> AbilityMechanic type + params
+#ifndef PTCGP_ABILITY_MECHANIC_DICT_PATH
+#  define PTCGP_ABILITY_MECHANIC_DICT_PATH "database/ability_mechanic_dictionary.json"
+#endif
+
+// pair_mechanic.json                — pokemon_id -> { ability, attacks[] } combined pair
+#ifndef PTCGP_PAIR_MECHANIC_PATH
+#  define PTCGP_PAIR_MECHANIC_PATH "database/pair_mechanic.json"
 #endif
 
 namespace ptcgp_sim 
@@ -45,21 +52,55 @@ public:
     std::size_t              size()      const { return Cards.size(); }
 
     // ---------------------------------------------------------------------------
-    // build_dictionaries
+    // build_attack_mechanic_dictionary
     //
-    // Unconditionally (re)builds both intermediate files:
-    //   1. mechanic_dictionary.json   — effect text -> Mechanic type + params
-    //   2. attack_mechanic_dictionary.json — pokemon_id -> attacks -> mechanic
+    // Builds the attack-side dictionary file:
+    //   attack_mechanic_dictionary.json — effect text -> AttackMechanic type + params
     //
-    // Called by the CLI --build_dictionary flag and automatically by load()
-    // when either file is absent.
+    // Returns false if the file could not be written.
+    // ---------------------------------------------------------------------------
+    static bool build_attack_mechanic_dictionary(
+        const std::string& db_path              = PTCGP_DATABASE_PATH,
+        const std::string& attack_mechanic_path = PTCGP_ATTACK_MECHANIC_DICT_PATH);
+
+    // ---------------------------------------------------------------------------
+    // build_ability_mechanic_dictionary
     //
-    // Reports stats to stdout. Returns false if either file could not be written.
+    // Builds the ability-side dictionary file:
+    //   ability_mechanic_dictionary.json — ability effect text -> AbilityMechanic type + params
+    //
+    // Returns false if the file could not be written.
+    // ---------------------------------------------------------------------------
+    static bool build_ability_mechanic_dictionary(
+        const std::string& db_path               = PTCGP_DATABASE_PATH,
+        const std::string& ability_mechanic_path = PTCGP_ABILITY_MECHANIC_DICT_PATH);
+
+    // ---------------------------------------------------------------------------
+    // build_pair_mechanic
+    //
+    // Builds the combined pair file:
+    //   pair_mechanic.json — pokemon_id -> { ability, attacks[] }
+    //
+    // Also populates the pair_attack_mechanic() and pair_ability_mechanic()
+    // runtime maps.  Called once during Database::load().
+    // Returns false if the file could not be written.
+    // ---------------------------------------------------------------------------
+    bool build_pair_mechanic(
+        const std::string& pair_mechanic_path = PTCGP_PAIR_MECHANIC_PATH);
+
+    // ---------------------------------------------------------------------------
+    // build_dictionaries  (convenience wrapper)
+    //
+    // Calls build_attack_mechanic_dictionary(), build_ability_mechanic_dictionary(),
+    // then build_pair_mechanic() on a freshly parsed database.
+    // Used by the CLI --build_dictionary flag.
+    // Returns false if any step fails.
     // ---------------------------------------------------------------------------
     static bool build_dictionaries(
-        const std::string& db_path          = PTCGP_DATABASE_PATH,
-        const std::string& mechanic_path    = PTCGP_MECHANIC_DICT_PATH,
-        const std::string& attack_dict_path = PTCGP_ATTACK_DICT_PATH);
+        const std::string& db_path               = PTCGP_DATABASE_PATH,
+        const std::string& attack_mechanic_path  = PTCGP_ATTACK_MECHANIC_DICT_PATH,
+        const std::string& ability_mechanic_path = PTCGP_ABILITY_MECHANIC_DICT_PATH,
+        const std::string& pair_mechanic_path    = PTCGP_PAIR_MECHANIC_PATH);
 
 private:
     std::vector<Card> Cards;
@@ -67,9 +108,9 @@ private:
     // Internal: parse database.json and populate Cards (without mechanic resolution).
     static Database parse_json(const std::string& path);
 
-    // Internal: apply mechanic resolution to all loaded cards using the
-    // attack mechanic dictionary (if available) or effect_mechanic_map().
-    void resolve_mechanics(const std::string& attack_dict_path);
+    // Internal: apply AttackMechanic resolution to all loaded cards using the
+    // pair_mechanic.json file (if available) or attack_mechanic_dictionary().
+    void resolve_mechanics(const std::string& pair_mechanic_path);
 };
 
 } // namespace ptcgp_sim

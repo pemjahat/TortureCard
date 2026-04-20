@@ -10,26 +10,26 @@ namespace ptcgp_sim
 struct InPlayPokemon; // forward declaration for apply_post_damage
 
 // ---------------------------------------------------------------------------
-// Mechanic — abstract base class for all attack mechanics
+// AttackMechanic — abstract base class for all attack mechanics
 //
 // Each concrete mechanic implements:
-//   compute_damage  — returns the raw damage to deal (before weakness).
-//                     fixed_damage is the attack's base damage field.
+//   compute_damage    — returns the raw damage to deal (before weakness).
+//                       fixed_damage is the attack's base damage field.
 //   apply_post_damage — called after damage + weakness are applied to the
 //                       defender; used for side effects on the attacker
 //                       (e.g. SelfHeal).  Default: no-op.
-//   equals          — value equality (used by tests).
-//   clone           — deep copy (needed because Attack stores unique_ptr).
-//   type_name       — string identifier for serialisation.
+//   equals            — value equality (used by tests).
+//   clone             — deep copy (needed because Attack stores unique_ptr).
+//   type_name         — string identifier for serialisation.
 // ---------------------------------------------------------------------------
-struct Mechanic
+struct AttackMechanic
 {
-    virtual ~Mechanic() = default;
+    virtual ~AttackMechanic() = default;
 
     virtual int  compute_damage(int fixed_damage, std::mt19937& rng) const = 0;
     virtual void apply_post_damage(InPlayPokemon& /*attacker*/) const {}
-    virtual bool equals(const Mechanic& other) const = 0;
-    virtual std::unique_ptr<Mechanic> clone() const = 0;
+    virtual bool equals(const AttackMechanic& other) const = 0;
+    virtual std::unique_ptr<AttackMechanic> clone() const = 0;
     virtual std::string type_name() const = 0;
 
     // Serialise this mechanic's parameters to a flat JSON object string.
@@ -41,24 +41,24 @@ struct Mechanic
     // Called on a default-constructed instance immediately after construction.
     virtual void from_params_json(const std::string& /*json*/) {}
 
-    bool operator==(const Mechanic& other) const { return equals(other); }
-    bool operator!=(const Mechanic& other) const { return !equals(other); }
+    bool operator==(const AttackMechanic& other) const { return equals(other); }
+    bool operator!=(const AttackMechanic& other) const { return !equals(other); }
 };
 
 // ---------------------------------------------------------------------------
 // BasicDamage — deals only the fixed damage field, no extra effect.
 // ---------------------------------------------------------------------------
-struct BasicDamage : Mechanic
+struct BasicDamage : AttackMechanic
 {
     int compute_damage(int fixed_damage, std::mt19937&) const override
     {
         return fixed_damage;
     }
-    bool equals(const Mechanic& other) const override
+    bool equals(const AttackMechanic& other) const override
     {
         return dynamic_cast<const BasicDamage*>(&other) != nullptr;
     }
-    std::unique_ptr<Mechanic> clone() const override
+    std::unique_ptr<AttackMechanic> clone() const override
     {
         return std::make_unique<BasicDamage>(*this);
     }
@@ -70,7 +70,7 @@ struct BasicDamage : Mechanic
 // FlipNCoinDamage — flip N coins; damage = heads_damage*heads + tails_damage*tails.
 // Replaces fixed damage entirely.
 // ---------------------------------------------------------------------------
-struct FlipNCoinDamage : Mechanic
+struct FlipNCoinDamage : AttackMechanic
 {
     int coins{1};
     int heads_damage{0};
@@ -90,13 +90,13 @@ struct FlipNCoinDamage : Mechanic
         }
         return heads_damage * heads + tails_damage * tails;
     }
-    bool equals(const Mechanic& other) const override
+    bool equals(const AttackMechanic& other) const override
     {
         const auto* o = dynamic_cast<const FlipNCoinDamage*>(&other);
         return o && coins == o->coins && heads_damage == o->heads_damage
                  && tails_damage == o->tails_damage;
     }
-    std::unique_ptr<Mechanic> clone() const override
+    std::unique_ptr<AttackMechanic> clone() const override
     {
         return std::make_unique<FlipNCoinDamage>(*this);
     }
@@ -115,7 +115,7 @@ struct FlipNCoinDamage : Mechanic
 // FlipNCoinExtraDamage — flip N coins;
 //   damage = (include_fixed_damage ? fixed_damage : 0) + extra_damage * heads.
 // ---------------------------------------------------------------------------
-struct FlipNCoinExtraDamage : Mechanic
+struct FlipNCoinExtraDamage : AttackMechanic
 {
     int  coins{1};
     int  extra_damage{0};
@@ -134,13 +134,13 @@ struct FlipNCoinExtraDamage : Mechanic
         int base = include_fixed_damage ? fixed_damage : 0;
         return base + extra_damage * heads;
     }
-    bool equals(const Mechanic& other) const override
+    bool equals(const AttackMechanic& other) const override
     {
         const auto* o = dynamic_cast<const FlipNCoinExtraDamage*>(&other);
         return o && coins == o->coins && extra_damage == o->extra_damage
                  && include_fixed_damage == o->include_fixed_damage;
     }
-    std::unique_ptr<Mechanic> clone() const override
+    std::unique_ptr<AttackMechanic> clone() const override
     {
         return std::make_unique<FlipNCoinExtraDamage>(*this);
     }
@@ -158,7 +158,7 @@ struct FlipNCoinExtraDamage : Mechanic
 // ---------------------------------------------------------------------------
 // SelfHeal — deals fixed damage, then heals `amount` from the attacker.
 // ---------------------------------------------------------------------------
-struct SelfHeal : Mechanic
+struct SelfHeal : AttackMechanic
 {
     int amount{0};
 
@@ -171,12 +171,12 @@ struct SelfHeal : Mechanic
     }
     void apply_post_damage(InPlayPokemon& attacker) const override;
 
-    bool equals(const Mechanic& other) const override
+    bool equals(const AttackMechanic& other) const override
     {
         const auto* o = dynamic_cast<const SelfHeal*>(&other);
         return o && amount == o->amount;
     }
-    std::unique_ptr<Mechanic> clone() const override
+    std::unique_ptr<AttackMechanic> clone() const override
     {
         return std::make_unique<SelfHeal>(*this);
     }
@@ -192,7 +192,7 @@ struct SelfHeal : Mechanic
 // ---------------------------------------------------------------------------
 // FlipUntilTailsDamage — flip coins until tails; damage = damage_per_heads * heads.
 // ---------------------------------------------------------------------------
-struct FlipUntilTailsDamage : Mechanic
+struct FlipUntilTailsDamage : AttackMechanic
 {
     int damage_per_heads{0};
 
@@ -206,12 +206,12 @@ struct FlipUntilTailsDamage : Mechanic
         while (coin(rng)) ++heads;
         return damage_per_heads * heads;
     }
-    bool equals(const Mechanic& other) const override
+    bool equals(const AttackMechanic& other) const override
     {
         const auto* o = dynamic_cast<const FlipUntilTailsDamage*>(&other);
         return o && damage_per_heads == o->damage_per_heads;
     }
-    std::unique_ptr<Mechanic> clone() const override
+    std::unique_ptr<AttackMechanic> clone() const override
     {
         return std::make_unique<FlipUntilTailsDamage>(*this);
     }
@@ -228,17 +228,17 @@ struct FlipUntilTailsDamage : Mechanic
 // UnknownMechanic — placeholder for unrecognised effect text.
 // Falls back to fixed damage at runtime.
 // ---------------------------------------------------------------------------
-struct UnknownMechanic : Mechanic
+struct UnknownMechanic : AttackMechanic
 {
     int compute_damage(int fixed_damage, std::mt19937&) const override
     {
         return fixed_damage;
     }
-    bool equals(const Mechanic& other) const override
+    bool equals(const AttackMechanic& other) const override
     {
         return dynamic_cast<const UnknownMechanic*>(&other) != nullptr;
     }
-    std::unique_ptr<Mechanic> clone() const override
+    std::unique_ptr<AttackMechanic> clone() const override
     {
         return std::make_unique<UnknownMechanic>(*this);
     }

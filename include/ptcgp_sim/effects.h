@@ -46,4 +46,9 @@ bool search_basic_to_hand(GameState& gs, int player, std::mt19937& rng);
 // clears volatile status conditions on the evolved Pokemon.
 void apply_evolve(GameState& gs, int player, const CardId& evolution_card_id, int slot_index);
 
+// Apply a UseAbility action: dispatch to the AbilityMechanic for the Pokemon
+// in action.slot_index.  Sets ability_used_this_turn on that Pokemon.
+// Asserts if the resolved mechanic has Passive timing.
+void apply_ability_action(GameState& gs, const Action& action, std::mt19937& rng);
+
 } // namespace ptcgp_sim

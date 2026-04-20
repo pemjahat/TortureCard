@@ -39,6 +39,12 @@ std::string Action::to_string() const
         case ActionType::PlayStadium:
             oss << "PlayStadium(" << card_id.to_string() << ")";
             break;
+        case ActionType::Evolve:
+            oss << "Evolve(" << card_id.to_string() << ", slot=" << slot_index << ")";
+            break;
+        case ActionType::UseAbility:
+            oss << "UseAbility(slot=" << slot_index << ")";
+            break;
         default:
             oss << "Unknown";
             break;

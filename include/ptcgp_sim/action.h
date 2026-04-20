@@ -23,6 +23,7 @@ enum class ActionType
     PlayTool,       // Attach a Tool card to a Pokemon in play
     PlayStadium,    // Play a Stadium card (replaces current Stadium)
     Evolve,         // Evolve an in-play Pokemon using a card from hand
+    UseAbility,     // Use the active (or bench) Pokemon's ability
 };
 
 struct Action
@@ -96,6 +97,11 @@ struct Action
     static Action evolve(const CardId& id, int slot)
     {
         Action a; a.type = ActionType::Evolve; a.card_id = id; a.slot_index = slot; return a;
+    }
+
+    static Action use_ability(int slot)
+    {
+        Action a; a.type = ActionType::UseAbility; a.slot_index = slot; return a;
     }
 
     // Human-readable description for CLI output and debugging

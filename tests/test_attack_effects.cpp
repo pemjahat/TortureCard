@@ -8,7 +8,7 @@
 #include "ptcgp_sim/deck.h"
 #include "ptcgp_sim/effects.h"
 #include "ptcgp_sim/game_state.h"
-#include "ptcgp_sim/mechanic.h"
+#include "ptcgp_sim/attack_mechanic.h"
 
 #include <algorithm>
 #include <iostream>
@@ -70,7 +70,7 @@ static ptcgp_sim::Card make_pokemon(
 static ptcgp_sim::Attack make_attack_with_mechanic(
     const std::string& name,
     int damage,
-    std::unique_ptr<ptcgp_sim::Mechanic> mechanic)
+    std::unique_ptr<ptcgp_sim::AttackMechanic> mechanic)
 {
     ptcgp_sim::Attack a;
     a.name     = name;

@@ -2,7 +2,8 @@
 
 #include "ptcgp_sim/common.h"
 #include "ptcgp_sim/database.h"
-#include "ptcgp_sim/mechanic_map.h"
+#include "ptcgp_sim/attack_mechanic_dictionary.h"
+#include "ptcgp_sim/ability_mechanic_dictionary.h"
 
 
 
@@ -109,26 +110,59 @@ static std::string extract_json_value(const std::string& obj, const std::string&
 // To add a new mechanic: register it in the factory map below.
 // ---------------------------------------------------------------------------
 
-using MechanicFactory = std::unique_ptr<Mechanic>(*)();
+using MechanicFactory = std::unique_ptr<AttackMechanic>(*)();
 
 static const std::unordered_map<std::string, MechanicFactory>& mechanic_factory_map()
 {
     static const std::unordered_map<std::string, MechanicFactory> MAP = {
-        { "BasicDamage",         []() -> std::unique_ptr<Mechanic> { return std::make_unique<BasicDamage>(); } },
-        { "FlipNCoinDamage",     []() -> std::unique_ptr<Mechanic> { return std::make_unique<FlipNCoinDamage>(); } },
-        { "FlipNCoinExtraDamage",[]() -> std::unique_ptr<Mechanic> { return std::make_unique<FlipNCoinExtraDamage>(); } },
-        { "SelfHeal",            []() -> std::unique_ptr<Mechanic> { return std::make_unique<SelfHeal>(); } },
-        { "FlipUntilTailsDamage",[]() -> std::unique_ptr<Mechanic> { return std::make_unique<FlipUntilTailsDamage>(); } },
+        { "BasicDamage",         []() -> std::unique_ptr<AttackMechanic> { return std::make_unique<BasicDamage>(); } },
+        { "FlipNCoinDamage",     []() -> std::unique_ptr<AttackMechanic> { return std::make_unique<FlipNCoinDamage>(); } },
+        { "FlipNCoinExtraDamage",[]() -> std::unique_ptr<AttackMechanic> { return std::make_unique<FlipNCoinExtraDamage>(); } },
+        { "SelfHeal",            []() -> std::unique_ptr<AttackMechanic> { return std::make_unique<SelfHeal>(); } },
+        { "FlipUntilTailsDamage",[]() -> std::unique_ptr<AttackMechanic> { return std::make_unique<FlipUntilTailsDamage>(); } },
     };
     return MAP;
 }
 
-static std::unique_ptr<Mechanic> mechanic_from_json(const std::string& type, const std::string& params_json)
+static std::unique_ptr<AttackMechanic> mechanic_from_json(const std::string& type, const std::string& params_json)
 {
     const auto& registry = mechanic_factory_map();
     auto it = registry.find(type);
-    if (it == registry.end()) return nullptr; // Unknown — leave mechanic as nullptr
+    if (it == registry.end()) return nullptr;
     auto mech = it->second();
+    mech->from_params_json(params_json);
+    return mech;
+}
+
+// ---------------------------------------------------------------------------
+// Ability mechanic factory registry
+// ---------------------------------------------------------------------------
+
+using AbilityMechanicFactory = std::unique_ptr<AbilityMechanic>(*)();
+
+static const std::unordered_map<std::string, AbilityMechanicFactory>& ability_mechanic_factory_map()
+{
+    static const std::unordered_map<std::string, AbilityMechanicFactory> MAP = {
+        { "HealAllYourPokemon",    []() -> std::unique_ptr<AbilityMechanic> { return std::make_unique<HealAllYourPokemon>(); } },
+        { "HealOneYourPokemon",    []() -> std::unique_ptr<AbilityMechanic> { return std::make_unique<HealOneYourPokemon>(); } },
+        { "HealActiveYourPokemon", []() -> std::unique_ptr<AbilityMechanic> { return std::make_unique<HealActiveYourPokemon>(); } },
+        { "ReduceDamageFromAttacks", []() -> std::unique_ptr<AbilityMechanic> { return std::make_unique<ReduceDamageFromAttacks>(); } },
+        { "UnknownAbility",        []() -> std::unique_ptr<AbilityMechanic> { return std::make_unique<UnknownAbilityMechanic>(); } },
+    };
+    return MAP;
+}
+
+// Returns nullptr only if type is empty; always returns UnknownAbilityMechanic for unrecognised types.
+static std::unique_ptr<AbilityMechanic> ability_mechanic_from_json(const std::string& type, const std::string& params_json)
+{
+    if (type.empty()) return nullptr;
+    const auto& registry = ability_mechanic_factory_map();
+    auto it = registry.find(type);
+    std::unique_ptr<AbilityMechanic> mech;
+    if (it != registry.end())
+        mech = it->second();
+    else
+        mech = std::make_unique<UnknownAbilityMechanic>();
     mech->from_params_json(params_json);
     return mech;
 }
@@ -325,6 +359,49 @@ Database Database::parse_json(const std::string& path)
                     }
                     else { ++i; }
                 }
+                else if (jsmn_tok_eq(js, key, "ability"))
+                {
+                    // ability is an object: {"name": "...", "effect": "..."}
+                    // or null if the Pokemon has no ability
+                    if (val.type == JSMN_PRIMITIVE && js[val.start] == 'n')
+                    {
+                        card.ability = std::nullopt;
+                        ++i;
+                    }
+                    else if (val.type == JSMN_OBJECT)
+                    {
+                        Ability ab;
+                        int ab_size = val.size; ++i;
+                        for (int af = 0; af < ab_size; ++af)
+                        {
+                            if (i >= ntok) break;
+                            const jsmntok_t& akey = tokens[i]; ++i;
+                            if (i >= ntok) break;
+                            const jsmntok_t& aval = tokens[i];
+                            if (jsmn_tok_eq(js, akey, "name"))
+                            {
+                                ab.name = jsmn_tok_str(js, aval);
+                                ++i;
+                            }
+                            else if (jsmn_tok_eq(js, akey, "effect"))
+                            {
+                                ab.effect = jsmn_tok_str(js, aval);
+                                ++i;
+                            }
+                            else
+                            {
+                                if (aval.type == JSMN_OBJECT || aval.type == JSMN_ARRAY)
+                                {
+                                    int end = aval.end; ++i;
+                                    while (i < ntok && tokens[i].start < end) ++i;
+                                }
+                                else { ++i; }
+                            }
+                        }
+                        card.ability = ab;
+                    }
+                    else { ++i; }
+                }
                 else
                 {
                     if (val.type == JSMN_OBJECT || val.type == JSMN_ARRAY)
@@ -346,140 +423,190 @@ Database Database::parse_json(const std::string& path)
 // ---------------------------------------------------------------------------
 // Database::resolve_mechanics
 //
-// Reads attack_mechanic_dictionary.json (if it exists) and applies the stored
-// Mechanic to each Attack on the loaded cards.  Falls back to inline
-// effect_mechanic_map() resolution if the file is absent.
+// Reads pair_mechanic.json and in one pass:
+//   1. Sets atk.mechanic on each Card's attacks
+//   2. Populates pair_attack_mechanic() and pair_ability_mechanic() runtime maps
+//
+// pair_mechanic.json is the single source of truth — generated once by
+// `ptcgp_cli util --build_dictionary`.  If the file is absent, a warning is
+// printed and the function returns without crashing.
 // ---------------------------------------------------------------------------
-void Database::resolve_mechanics(const std::string& attack_dict_path)
+void Database::resolve_mechanics(const std::string& pair_mechanic_path)
 {
-    // Try to load the attack mechanic dictionary
-    std::ifstream dict_file(attack_dict_path);
-    if (dict_file.is_open())
+    std::ifstream dict_file(pair_mechanic_path);
+    if (!dict_file.is_open())
     {
-        // Read the whole file
-        std::ostringstream ss;
-        ss << dict_file.rdbuf();
-        const std::string dict_json = ss.str();
-
-        // Build a map: pokemon_id_string -> vector of (attack_index, Mechanic)
-        // We parse the JSON manually using simple string search (no extra deps).
-        // Format:
-        // { "<id>": { "attacks": [ { "attack_index": N, "mechanic_type": "...", "params": {...} }, ... ] }, ... }
-
-        // Build a lookup: card id string -> Card*
-        std::unordered_map<std::string, Card*> id_map;
-        for (auto& card : Cards)
-            id_map[card.id.to_string()] = &card;
-
-        // Walk through each top-level key (pokemon id)
-        std::size_t pos = 0;
-        while (pos < dict_json.size())
-        {
-            // Find next quoted key
-            auto key_start = dict_json.find('"', pos);
-            if (key_start == std::string::npos) break;
-            auto key_end = dict_json.find('"', key_start + 1);
-            if (key_end == std::string::npos) break;
-            std::string pokemon_id = dict_json.substr(key_start + 1, key_end - key_start - 1);
-            pos = key_end + 1;
-
-            // Skip to the "attacks" array
-            auto attacks_pos = dict_json.find("\"attacks\"", pos);
-            if (attacks_pos == std::string::npos) break;
-            auto arr_start = dict_json.find('[', attacks_pos);
-            if (arr_start == std::string::npos) break;
-            auto arr_end = dict_json.find(']', arr_start);
-            if (arr_end == std::string::npos) break;
-
-            std::string attacks_section = dict_json.substr(arr_start, arr_end - arr_start + 1);
-            pos = arr_end + 1;
-
-            // Find the card
-            auto card_it = id_map.find(pokemon_id);
-            if (card_it == id_map.end()) continue;
-            Card* card = card_it->second;
-
-            // Parse each attack entry in the array
-            std::size_t apos = 0;
-            while (apos < attacks_section.size())
-            {
-                auto obj_start = attacks_section.find('{', apos);
-                if (obj_start == std::string::npos) break;
-                auto obj_end = attacks_section.find('}', obj_start);
-                if (obj_end == std::string::npos) break;
-                std::string entry = attacks_section.substr(obj_start, obj_end - obj_start + 1);
-                apos = obj_end + 1;
-
-                // Extract attack_index
-                std::string idx_str = extract_json_value(entry, "attack_index");
-                if (idx_str.empty()) continue;
-                int atk_idx = std::stoi(idx_str);
-
-                // Extract mechanic_type
-                std::string mtype = extract_json_value(entry, "mechanic_type");
-
-                // Extract params object
-                auto params_start = entry.find("\"params\":");
-                std::string params_json = "{}";
-                if (params_start != std::string::npos)
-                {
-                    auto pb = entry.find('{', params_start);
-                    auto pe = entry.find('}', pb);
-                    if (pb != std::string::npos && pe != std::string::npos)
-                        params_json = entry.substr(pb, pe - pb + 1);
-                }
-
-                if (atk_idx >= 0 && atk_idx < (int)card->attacks.size())
-                {
-                    auto mech = mechanic_from_json(mtype, params_json);
-                    // BasicDamage and Unknown leave mechanic as nullptr
-                    if (mech && mech->type_name() != "BasicDamage" && mech->type_name() != "Unknown")
-                        card->attacks[atk_idx].mechanic = std::move(mech);
-                }
-            }
-        }
+        std::cerr << "[warn] pair_mechanic.json not found at: " << pair_mechanic_path
+                  << "\n       Run: ptcgp_cli util --build_dictionary\n";
         return;
     }
 
-    // Fallback: resolve inline using effect_mechanic_map()
-    const auto& emap = effect_mechanic_map();
+    // Read the whole file
+    std::ostringstream ss;
+    ss << dict_file.rdbuf();
+    const std::string dict_json = ss.str();
+
+    // Build a lookup: card id string -> Card*
+    std::unordered_map<std::string, Card*> id_map;
     for (auto& card : Cards)
+        id_map[card.id.to_string()] = &card;
+
+    // Runtime map to populate (attacks only — ability mechanic lives on card.ability->mechanic)
+    auto& rt_attack = const_cast<std::unordered_map<std::string, const AttackMechanic*>&>(
+        pair_attack_mechanic());
+
+    // Walk through each top-level key (pokemon id)
+    // Format: { "<id>": { "ability": {...}|null, "attacks": [ {...}, ... ] }, ... }
+    std::size_t pos = 0;
+    while (pos < dict_json.size())
     {
-        for (auto& atk : card.attacks)
+        // Find next quoted key (pokemon id)
+        auto key_start = dict_json.find('"', pos);
+        if (key_start == std::string::npos) break;
+        auto key_end = dict_json.find('"', key_start + 1);
+        if (key_end == std::string::npos) break;
+        const std::string pokemon_id = dict_json.substr(key_start + 1, key_end - key_start - 1);
+        pos = key_end + 1;
+
+        // Locate the opening brace of this pokemon's value object
+        auto obj_open = dict_json.find('{', pos);
+        if (obj_open == std::string::npos) break;
+
+        // Find the matching closing brace for this pokemon object
+        // (handles nested braces from ability/params objects)
+        int depth = 0;
+        std::size_t obj_close = obj_open;
+        for (std::size_t ci = obj_open; ci < dict_json.size(); ++ci)
         {
-            if (!atk.effect.has_value()) continue;
-            auto it = emap.find(*atk.effect);
-            if (it != emap.end())
-                atk.mechanic = it->second->clone();
-            else
-                atk.mechanic = std::make_unique<UnknownMechanic>();
+            if (dict_json[ci] == '{') ++depth;
+            else if (dict_json[ci] == '}') { --depth; if (depth == 0) { obj_close = ci; break; } }
+        }
+        const std::string pokemon_obj = dict_json.substr(obj_open, obj_close - obj_open + 1);
+        pos = obj_close + 1;
+
+        Card* card = nullptr;
+        auto card_it = id_map.find(pokemon_id);
+        if (card_it != id_map.end())
+            card = card_it->second;
+
+        // ---- ability field ----
+        auto ability_pos = pokemon_obj.find("\"ability\":");
+        if (ability_pos != std::string::npos)
+        {
+            auto colon = pokemon_obj.find(':', ability_pos);
+            std::size_t val_start = colon + 1;
+            while (val_start < pokemon_obj.size() && std::isspace((unsigned char)pokemon_obj[val_start]))
+                ++val_start;
+
+            if (pokemon_obj.substr(val_start, 4) != "null" && card && card->ability.has_value())
+            {
+                // Find the ability object { ... }
+                auto ab_open  = pokemon_obj.find('{', colon);
+                auto ab_close = pokemon_obj.find('}', ab_open);
+                if (ab_open != std::string::npos && ab_close != std::string::npos)
+                {
+                    const std::string ab_entry = pokemon_obj.substr(ab_open, ab_close - ab_open + 1);
+                    const std::string mtype    = extract_json_value(ab_entry, "mechanic_type");
+
+                    auto params_pos = ab_entry.find("\"params\":");
+                    std::string params_json = "{}";
+                    if (params_pos != std::string::npos)
+                    {
+                        auto pb = ab_entry.find('{', params_pos);
+                        auto pe = ab_entry.find('}', pb);
+                        if (pb != std::string::npos && pe != std::string::npos)
+                            params_json = ab_entry.substr(pb, pe - pb + 1);
+                    }
+
+                    // Build mechanic directly onto card->ability->mechanic
+                    // Use UnknownAbilityMechanic as fallback for unrecognised types
+                    auto mech = ability_mechanic_from_json(mtype, params_json);
+                    card->ability->mechanic = mech
+                        ? std::move(mech)
+                        : std::make_unique<UnknownAbilityMechanic>();
+                }
+            }
+        }
+
+        // ---- attacks field ----
+        auto attacks_pos = pokemon_obj.find("\"attacks\":");
+        if (attacks_pos == std::string::npos) continue;
+        auto arr_start = pokemon_obj.find('[', attacks_pos);
+        if (arr_start == std::string::npos) continue;
+        auto arr_end = pokemon_obj.find(']', arr_start);
+        if (arr_end == std::string::npos) continue;
+
+        const std::string attacks_section = pokemon_obj.substr(arr_start, arr_end - arr_start + 1);
+
+        if (!card) continue;
+
+        // Parse each attack entry { ... } in the array
+        std::size_t apos = 0;
+        while (apos < attacks_section.size())
+        {
+            auto obj_start = attacks_section.find('{', apos);
+            if (obj_start == std::string::npos) break;
+            auto obj_end = attacks_section.find('}', obj_start);
+            if (obj_end == std::string::npos) break;
+            const std::string entry = attacks_section.substr(obj_start, obj_end - obj_start + 1);
+            apos = obj_end + 1;
+
+            const std::string idx_str = extract_json_value(entry, "attack_index");
+            if (idx_str.empty()) continue;
+            const int atk_idx = std::stoi(idx_str);
+            if (atk_idx < 0 || atk_idx >= (int)card->attacks.size()) continue;
+
+            const std::string mtype = extract_json_value(entry, "mechanic_type");
+            if (mtype.empty() || mtype == "BasicDamage" || mtype == "Unknown") continue;
+
+            auto params_pos = entry.find("\"params\":");
+            std::string params_json = "{}";
+            if (params_pos != std::string::npos)
+            {
+                auto pb = entry.find('{', params_pos);
+                auto pe = entry.find('}', pb);
+                if (pb != std::string::npos && pe != std::string::npos)
+                    params_json = entry.substr(pb, pe - pb + 1);
+            }
+
+            // Construct mechanic via factory and assign to attack
+            auto mech = mechanic_from_json(mtype, params_json);
+            if (mech)
+            {
+                const std::string atk_key = pokemon_id + ":" + std::to_string(atk_idx);
+                // Populate rt_attack with a stable pointer from the in-memory dictionary
+                const auto& ammap = attack_mechanic_dictionary();
+                for (const auto& kv : ammap)
+                {
+                    if (kv.second->type_name() == mtype)
+                    {
+                        rt_attack[atk_key] = kv.second.get();
+                        break;
+                    }
+                }
+                card->attacks[atk_idx].mechanic = std::move(mech);
+            }
         }
     }
 }
 
 // ---------------------------------------------------------------------------
-// Database::build_dictionaries
+// Database::build_attack_mechanic_dictionary
 // ---------------------------------------------------------------------------
 
-bool Database::build_dictionaries(
+bool Database::build_attack_mechanic_dictionary(
     const std::string& db_path,
-    const std::string& mechanic_path,
-    const std::string& attack_dict_path)
+    const std::string& attack_mechanic_path)
 {
-    std::cout << "[info] Building mechanic dictionary from database.json...\n";
+    std::cout << "[info] Building attack mechanic dictionary from database.json...\n";
 
-    // Parse the raw database
     Database db = Database::parse_json(db_path);
+    const auto& mmap = attack_mechanic_dictionary();
 
-    const auto& mmap = effect_mechanic_map();
-
-    // -----------------------------------------------------------------------
-    // Step 1: Build mechanic_dictionary.json
-    // Collect all unique effect texts and resolve them.
-    // -----------------------------------------------------------------------
-    // resolved_effects: effect text -> prototype pointer (non-owning, from mmap)
-    std::unordered_map<std::string, const Mechanic*> resolved_effects;
-    std::vector<std::string>                         unresolved_effects;
+    // Build attack_mechanic_dictionary.json
+    // effect text -> AttackMechanic type + params
+    std::unordered_map<std::string, const AttackMechanic*> resolved_effects;
+    std::vector<std::string>                               unresolved_effects;
 
     for (const auto& card : db.Cards)
     {
@@ -499,134 +626,289 @@ bool Database::build_dictionaries(
         }
     }
 
-    // Write mechanic_dictionary.json
     {
-        std::ofstream out(mechanic_path);
+        std::ofstream out(attack_mechanic_path);
         if (!out.is_open())
         {
-            std::cerr << "[warn] Could not write mechanic dictionary: " << mechanic_path << "\n";
-            // Continue to build attack dict in memory even if file write fails
-        }
-        else
-        {
-            out << "{\n";
-            bool first = true;
-            for (const auto& kv : resolved_effects)
-            {
-                if (!first) out << ",\n";
-                first = false;
-                out << "  \"" << json_escape(kv.first) << "\": {"
-                    << "\"mechanic_type\": \"" << kv.second->type_name() << "\", "
-                    << "\"params\": " << kv.second->params_json()
-                    << "}";
-            }
-            for (const auto& eff : unresolved_effects)
-            {
-                if (!first) out << ",\n";
-                first = false;
-                out << "  \"" << json_escape(eff) << "\": {"
-                    << "\"mechanic_type\": \"Unknown\", "
-                    << "\"params\": {}"
-                    << "}";
-            }
-            out << "\n}\n";
-            out.close();
-        }
-    }
-
-    // -----------------------------------------------------------------------
-    // Step 2: Build attack_mechanic_dictionary.json
-    // -----------------------------------------------------------------------
-    int total_pokemon   = 0;
-    int total_attacks   = 0;
-    int count_basic     = 0;
-    int count_resolved  = 0;
-    int count_unknown   = 0;
-
-    {
-        std::ofstream out(attack_dict_path);
-        if (!out.is_open())
-        {
-            std::cerr << "[warn] Could not write attack mechanic dictionary: " << attack_dict_path << "\n";
+            std::cerr << "[warn] Could not write attack mechanic dictionary: " << attack_mechanic_path << "\n";
             return false;
         }
 
         out << "{\n";
-        bool first_card = true;
-
-        for (const auto& card : db.Cards)
+        bool first = true;
+        for (const auto& kv : resolved_effects)
         {
-            if (card.type != CardType::Pokemon) continue;
-            if (card.attacks.empty()) continue;
-
-            ++total_pokemon;
-            if (!first_card) out << ",\n";
-            first_card = false;
-
-            out << "  \"" << json_escape(card.id.to_string()) << "\": {\n";
-            out << "    \"attacks\": [\n";
-
-            for (int ai = 0; ai < (int)card.attacks.size(); ++ai)
-            {
-                ++total_attacks;
-                const Attack& atk = card.attacks[ai];
-
-                std::string mtype = "BasicDamage";
-                std::string mparams = "{}";
-
-                if (atk.effect.has_value())
-                {
-                    auto it = mmap.find(*atk.effect);
-                    if (it != mmap.end())
-                    {
-                        mtype   = it->second->type_name();
-                        mparams = it->second->params_json();
-                        if (mtype == "BasicDamage") ++count_basic;
-                        else                        ++count_resolved;
-                    }
-                    else
-                    {
-                        mtype = "Unknown";
-                        ++count_unknown;
-                        std::cerr << "[warn] unknown attack effect: \""
-                                  << *atk.effect << "\"\n";
-                    }
-                }
-                else
-                {
-                    ++count_basic;
-                }
-
-                if (ai > 0) out << ",\n";
-                out << "      {"
-                    << "\"attack_index\": " << ai << ", "
-                    << "\"mechanic_type\": \"" << mtype << "\", "
-                    << "\"params\": " << mparams
-                    << "}";
-            }
-
-            out << "\n    ]\n";
-            out << "  }";
+            if (!first) out << ",\n";
+            first = false;
+            out << "  \"" << json_escape(kv.first) << "\": {"
+                << "\"mechanic_type\": \"" << kv.second->type_name() << "\", "
+                << "\"params\": " << kv.second->params_json()
+                << "}";
         }
-
+        for (const auto& eff : unresolved_effects)
+        {
+            if (!first) out << ",\n";
+            first = false;
+            out << "  \"" << json_escape(eff) << "\": {"
+                << "\"mechanic_type\": \"Unknown\", "
+                << "\"params\": {}"
+                << "}";
+        }
         out << "\n}\n";
         out.close();
     }
 
-    // Report stats
-    std::cout << "[info] Mechanic dictionary: "
+    std::cout << "[info] attack_mechanic_dictionary.json: "
               << resolved_effects.size() << " recognised, "
               << unresolved_effects.size() << " unrecognised\n";
-    std::cout << "[info] Attack mechanic dictionary: "
-              << total_pokemon << " Pokemon processed, "
-              << total_attacks << " attacks mapped ("
-              << count_basic << " BasicDamage, "
-              << count_resolved << " resolved, "
-              << count_unknown << " unknown)\n";
-    std::cout << "[info] Output: " << mechanic_path << "\n";
-    std::cout << "[info] Output: " << attack_dict_path << "\n";
+    std::cout << "[info] Output: " << attack_mechanic_path << "\n";
 
     return true;
+}
+
+// ---------------------------------------------------------------------------
+// Database::build_ability_mechanic_dictionary
+// ---------------------------------------------------------------------------
+
+bool Database::build_ability_mechanic_dictionary(
+    const std::string& db_path,
+    const std::string& ability_mechanic_path)
+{
+    std::cout << "[info] Building ability mechanic dictionary from database.json...\n";
+
+    Database db = Database::parse_json(db_path);
+    const auto& amap = ability_mechanic_dictionary();
+
+    // Build ability_mechanic_dictionary.json
+    // ability effect text -> AbilityMechanic type + params
+    std::unordered_map<std::string, const AbilityMechanic*> resolved_abilities;
+    std::vector<std::string>                                unresolved_abilities;
+
+    for (const auto& card : db.Cards)
+    {
+        if (card.type != CardType::Pokemon) continue;
+        if (!card.ability.has_value()) continue;
+
+        const std::string& eff = card.ability->effect;
+        if (resolved_abilities.count(eff) ||
+            std::find(unresolved_abilities.begin(), unresolved_abilities.end(), eff) != unresolved_abilities.end())
+            continue;
+
+        auto it = amap.find(eff);
+        if (it != amap.end())
+            resolved_abilities[eff] = it->second.get();
+        else
+            unresolved_abilities.push_back(eff);
+    }
+
+    {
+        std::ofstream out(ability_mechanic_path);
+        if (!out.is_open())
+        {
+            std::cerr << "[warn] Could not write ability mechanic dictionary: " << ability_mechanic_path << "\n";
+            return false;
+        }
+
+        out << "{\n";
+        bool first = true;
+        for (const auto& kv : resolved_abilities)
+        {
+            if (!first) out << ",\n";
+            first = false;
+            out << "  \"" << json_escape(kv.first) << "\": {"
+                << "\"mechanic_type\": \"" << kv.second->type_name() << "\", "
+                << "\"params\": " << kv.second->params_json()
+                << "}";
+        }
+        for (const auto& eff : unresolved_abilities)
+        {
+            if (!first) out << ",\n";
+            first = false;
+            out << "  \"" << json_escape(eff) << "\": {"
+                << "\"mechanic_type\": \"UnknownAbility\", "
+                << "\"params\": {}"
+                << "}";
+        }
+        out << "\n}\n";
+        out.close();
+    }
+
+    std::cout << "[info] ability_mechanic_dictionary.json: "
+              << resolved_abilities.size() << " recognised, "
+              << unresolved_abilities.size() << " unrecognised\n";
+    std::cout << "[info] Output: " << ability_mechanic_path << "\n";
+
+    return true;
+}
+
+// ---------------------------------------------------------------------------
+// Database::build_pair_mechanic
+//
+// Writes pair_mechanic.json — one entry per Pokemon with both ability and
+// attacks fields combined:
+//
+//   "A1 001": {
+//     "ability": { "mechanic_type": "HealAllYourPokemon", "params": {...} },
+//     "attacks": [
+//       { "attack_index": 0, "mechanic_type": "BasicDamage", "params": {} },
+//       { "attack_index": 1, "mechanic_type": "FlipNCoinDamage", "params": {...} }
+//     ]
+//   }
+//
+// Also populates the pair_attack_mechanic() and pair_ability_mechanic()
+// runtime maps from the loaded cards.
+// ---------------------------------------------------------------------------
+bool Database::build_pair_mechanic(const std::string& pair_mechanic_path)
+{
+    const auto& ammap  = attack_mechanic_dictionary();
+    const auto& abmap  = ability_mechanic_dictionary();
+
+    // Populate runtime maps
+    auto& rt_attack = const_cast<std::unordered_map<std::string, const AttackMechanic*>&>(
+        pair_attack_mechanic());
+    auto& rt_ability = const_cast<std::unordered_map<std::string, const AbilityMechanic*>&>(
+        pair_ability_mechanic());
+
+    int total_pokemon      = 0;
+    int total_attacks      = 0;
+    int count_atk_basic    = 0;
+    int count_atk_resolved = 0;
+    int count_atk_unknown  = 0;
+    int count_ab_resolved  = 0;
+    int count_ab_unknown   = 0;
+
+    std::ofstream out(pair_mechanic_path);
+    if (!out.is_open())
+    {
+        std::cerr << "[warn] Could not write pair mechanic: " << pair_mechanic_path << "\n";
+        return false;
+    }
+
+    out << "{\n";
+    bool first_card = true;
+
+    for (const auto& card : Cards)
+    {
+        if (card.type != CardType::Pokemon) continue;
+        if (card.attacks.empty() && !card.ability.has_value()) continue;
+
+        ++total_pokemon;
+        if (!first_card) out << ",\n";
+        first_card = false;
+
+        const std::string card_key = card.id.to_string();
+        out << "  \"" << json_escape(card_key) << "\": {\n";
+
+        // ---- ability field ----
+        if (card.ability.has_value())
+        {
+            const std::string& eff = card.ability->effect;
+            auto it = abmap.find(eff);
+            std::string mtype   = "UnknownAbility";
+            std::string mparams = "{}";
+            if (it != abmap.end())
+            {
+                mtype   = it->second->type_name();
+                mparams = it->second->params_json();
+                rt_ability[card_key] = it->second.get();
+                ++count_ab_resolved;
+            }
+            else
+            {
+                ++count_ab_unknown;
+            }
+            out << "    \"ability\": {"
+                << "\"mechanic_type\": \"" << mtype << "\", "
+                << "\"params\": " << mparams
+                << "}";
+        }
+        else
+        {
+            out << "    \"ability\": null";
+        }
+
+        // ---- attacks field ----
+        out << ",\n    \"attacks\": [\n";
+        for (int ai = 0; ai < (int)card.attacks.size(); ++ai)
+        {
+            ++total_attacks;
+            const Attack& atk = card.attacks[ai];
+
+            std::string mtype   = "BasicDamage";
+            std::string mparams = "{}";
+
+            if (atk.effect.has_value())
+            {
+                auto it = ammap.find(*atk.effect);
+                if (it != ammap.end())
+                {
+                    mtype   = it->second->type_name();
+                    mparams = it->second->params_json();
+                    if (mtype == "BasicDamage") ++count_atk_basic;
+                    else
+                    {
+                        ++count_atk_resolved;
+                        std::string atk_key = card_key + ":" + std::to_string(ai);
+                        rt_attack[atk_key] = it->second.get();
+                    }
+                }
+                else
+                {
+                    mtype = "Unknown";
+                    ++count_atk_unknown;
+                    std::cerr << "[warn] unknown attack effect: \""
+                              << *atk.effect << "\"\n";
+                }
+            }
+            else
+            {
+                ++count_atk_basic;
+            }
+
+            if (ai > 0) out << ",\n";
+            out << "      {"
+                << "\"attack_index\": " << ai << ", "
+                << "\"mechanic_type\": \"" << mtype << "\", "
+                << "\"params\": " << mparams
+                << "}";
+        }
+        out << "\n    ]\n";
+        out << "  }";
+    }
+
+    out << "\n}\n";
+    out.close();
+
+    std::cout << "[info] pair_mechanic.json: "
+              << total_pokemon << " Pokemon, "
+              << total_attacks << " attacks ("
+              << count_atk_basic << " BasicDamage, "
+              << count_atk_resolved << " resolved, "
+              << count_atk_unknown << " unknown), "
+              << "ability: " << count_ab_resolved << " resolved, "
+              << count_ab_unknown << " unknown\n";
+    std::cout << "[info] Output: " << pair_mechanic_path << "\n";
+
+    return true;
+}
+
+// ---------------------------------------------------------------------------
+// Database::build_dictionaries  (convenience wrapper)
+// ---------------------------------------------------------------------------
+
+bool Database::build_dictionaries(
+    const std::string& db_path,
+    const std::string& attack_mechanic_path,
+    const std::string& ability_mechanic_path,
+    const std::string& pair_mechanic_path)
+{
+    bool ok = true;
+    ok &= build_attack_mechanic_dictionary(db_path, attack_mechanic_path);
+    ok &= build_ability_mechanic_dictionary(db_path, ability_mechanic_path);
+    // build_pair_mechanic is a non-static member — parse a fresh db instance
+    Database db = Database::parse_json(db_path);
+    ok &= db.build_pair_mechanic(pair_mechanic_path);
+    return ok;
 }
 
 // ---------------------------------------------------------------------------
@@ -640,31 +922,23 @@ Database Database::load()
 
 Database Database::load(const std::string& path)
 {
-    // Determine sibling paths for the intermediate files
-    // (same directory as the database file)
+    // Determine sibling path for pair_mechanic.json
     std::string dir;
     auto slash = path.find_last_of("/\\");
     if (slash != std::string::npos)
         dir = path.substr(0, slash + 1);
 
-    const std::string mechanic_path    = dir + "mechanic_dictionary.json";
-    const std::string attack_dict_path = dir + "attack_mechanic_dictionary.json";
+    const std::string pair_mechanic_path = dir + "pair_mechanic.json";
 
-    // Auto-build intermediate files if either is absent
-    {
-        std::ifstream m(mechanic_path);
-        std::ifstream a(attack_dict_path);
-        if (!m.is_open() || !a.is_open())
-        {
-            build_dictionaries(path, mechanic_path, attack_dict_path);
-        }
-    }
-
-    // Parse the raw JSON
+    // 1. Parse database.json — card names, HP, energy, attack names/costs.
+    //    Effect text strings are read but mechanic resolution is deferred.
     Database db = Database::parse_json(path);
 
-    // Apply mechanic resolution from the attack dictionary
-    db.resolve_mechanics(attack_dict_path);
+    // 2. Read pair_mechanic.json and in one pass:
+    //      - set atk.mechanic on each attack
+    //      - populate pair_attack_mechanic() and pair_ability_mechanic() runtime maps
+    //    If pair_mechanic.json is absent, resolve_mechanics() prints a warning.
+    db.resolve_mechanics(pair_mechanic_path);
 
     return db;
 }

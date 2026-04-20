@@ -1,4 +1,4 @@
-#include "ptcgp_sim/mechanic_map.h"
+#include "ptcgp_sim/attack_mechanic_dictionary.h"
 
 #include <memory>
 #include <string>
@@ -8,15 +8,16 @@ namespace ptcgp_sim
 {
 
 // ---------------------------------------------------------------------------
-// effect_mechanic_map
+// attack_mechanic_dictionary
 //
-// Static prototype map: effect text -> unique_ptr<Mechanic>.
+// Static prototype map: effect text -> unique_ptr<AttackMechanic>.
 // ---------------------------------------------------------------------------
-const std::unordered_map<std::string, std::unique_ptr<Mechanic>>& effect_mechanic_map()
+const std::unordered_map<std::string, std::unique_ptr<AttackMechanic>>&
+attack_mechanic_dictionary()
 {
-    static std::unordered_map<std::string, std::unique_ptr<Mechanic>> MAP = []()
+    static std::unordered_map<std::string, std::unique_ptr<AttackMechanic>> MAP = []()
     {
-        std::unordered_map<std::string, std::unique_ptr<Mechanic>> m;
+        std::unordered_map<std::string, std::unique_ptr<AttackMechanic>> m;
 
         // ---------------------------------------------------------------
         // SelfHeal variants
@@ -103,6 +104,22 @@ const std::unordered_map<std::string, std::unique_ptr<Mechanic>>& effect_mechani
         return m;
     }();
 
+    return MAP;
+}
+
+// ---------------------------------------------------------------------------
+// pair_attack_mechanic
+//
+// Static map: "<CardId::to_string()>:<attack_index>" -> AttackMechanic*.
+// Built lazily from attack_mechanic_dictionary() on first call.
+// NOTE: pair_attack_mechanic requires the database to be loaded first.
+// For now this map is intentionally empty — it is populated by
+// Database::load() after card data is available.
+// ---------------------------------------------------------------------------
+const std::unordered_map<std::string, const AttackMechanic*>&
+pair_attack_mechanic()
+{
+    static std::unordered_map<std::string, const AttackMechanic*> MAP;
     return MAP;
 }
 

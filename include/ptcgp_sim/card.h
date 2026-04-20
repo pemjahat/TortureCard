@@ -1,6 +1,7 @@
 #pragma once
 
-#include "mechanic.h"
+#include "attack_mechanic.h"
+#include "ability_mechanic.h"
 #include <memory>
 #include <optional>
 #include <string>
@@ -65,7 +66,7 @@ struct Attack
     std::optional<std::string> effect{};               // raw effect text from database.json
 
     // Resolved mechanic — nullptr means BasicDamage (use fixed damage only).
-    std::unique_ptr<Mechanic> mechanic{};
+    std::unique_ptr<AttackMechanic> mechanic{};
 
     // Default constructor
     Attack() = default;
@@ -78,6 +79,7 @@ struct Attack
         , effect(other.effect)
         , mechanic(other.mechanic ? other.mechanic->clone() : nullptr)
     {}
+
 
     // Copy assignment
     Attack& operator=(const Attack& other)
@@ -98,6 +100,43 @@ struct Attack
     Attack& operator=(Attack&&) noexcept = default;
 };
 
+// Ability data for a Pokemon card.
+// `mechanic` is resolved by Database::resolve_mechanics() from pair_mechanic.json.
+// Never nullptr after resolution — UnknownAbilityMechanic is used as fallback.
+struct Ability
+{
+    std::string name;
+    std::string effect; // raw text kept for diagnostics / dictionary rebuild only
+
+    // Resolved mechanic — set by resolve_mechanics(), never accessed by string key at runtime.
+    std::unique_ptr<AbilityMechanic> mechanic{};
+
+    Ability() = default;
+
+    // Copy constructor — deep-copies the mechanic via clone()
+    Ability(const Ability& other)
+        : name(other.name)
+        , effect(other.effect)
+        , mechanic(other.mechanic ? other.mechanic->clone() : nullptr)
+    {}
+
+    // Copy assignment
+    Ability& operator=(const Ability& other)
+    {
+        if (this != &other)
+        {
+            name     = other.name;
+            effect   = other.effect;
+            mechanic = other.mechanic ? other.mechanic->clone() : nullptr;
+        }
+        return *this;
+    }
+
+    // Move constructor / assignment — default is fine
+    Ability(Ability&&) noexcept = default;
+    Ability& operator=(Ability&&) noexcept = default;
+};
+
 struct Card 
 {
     CardId                    id;
@@ -112,6 +151,7 @@ struct Card
     int                       stage{0};       // 0 = Basic, 1 = Stage 1, 2 = Stage 2
     std::optional<std::string> evolves_from{}; // name of the pre-evolution (nullopt for Basic)
     std::vector<Attack>       attacks;
+    std::optional<Ability>    ability{};      // Pokemon ability (nullopt if none)
 
     // --- Trainer fields ---
     TrainerType               trainer_type{TrainerType::Item}; // meaningful only when type == Trainer

@@ -46,6 +46,7 @@ struct InPlayPokemon
     std::vector<EnergyType> attached_energy;       // Energy cards attached to this Pokemon
     StatusCondition status{StatusCondition::None}; // Current status condition
     bool            played_this_turn{true};        // True if placed on mat this turn
+    bool            ability_used_this_turn{false};  // True if activate ability used this turn
     std::optional<Card> attached_tool{};           // Tool card attached to this Pokemon (if any)
     std::vector<Card>   cards_behind{};            // Lower-stage cards stacked under this one (evolution chain)
 
@@ -160,6 +161,11 @@ struct GameState
         retreated_this_turn        = false;
         attacked_this_turn         = false;
         current_energy             = std::nullopt;
+        // Reset ability_used_this_turn for all in-play Pokemon
+        for (auto& ps : players)
+            for (auto& slot : ps.pokemon_slots)
+                if (slot.has_value())
+                    slot->ability_used_this_turn = false;
     }
 
     // Check and set game_over / winner if a player has reached 3 points

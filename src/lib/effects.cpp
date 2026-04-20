@@ -2,6 +2,7 @@
 #include "ptcgp_sim/card.h"
 #include "ptcgp_sim/game_state.h"
 #include "ptcgp_sim/action.h"
+#include "ptcgp_sim/ability_mechanic.h"
 
 #include <algorithm>
 #include <cassert>
@@ -101,6 +102,26 @@ int apply_attack_damage(GameState& gs, int attacker_player, int attack_index, st
         *defender.card.weakness == attacker.card.energy_type)
     {
         damage += 20;
+    }
+
+    // -----------------------------------------------------------------------
+    // Apply passive DamagePhase ability: ReduceDamageFromAttacks
+    // Order: base damage -> weakness -> reduction (minimum 0)
+    // -----------------------------------------------------------------------
+    if (damage > 0 && defender.card.ability.has_value())
+    {
+        const AbilityMechanic* mech = defender.card.ability->mechanic.get();
+        if (mech &&
+            mech->timing()       == AbilityTiming::Passive &&
+            mech->passive_hook() == PassiveHook::DamagePhase)
+        {
+            const auto* reduce = dynamic_cast<const ReduceDamageFromAttacks*>(mech);
+            if (reduce)
+            {
+                damage -= reduce->amount;
+                if (damage < 0) damage = 0;
+            }
+        }
     }
 
     // Apply damage (cap so damage_counters never exceed card.hp)
@@ -431,6 +452,15 @@ void apply_action(GameState& gs, const Action& action, std::mt19937& rng)
         }
 
         // ---------------------------------------------------------------
+        // UseAbility
+        // ---------------------------------------------------------------
+        case ActionType::UseAbility:
+        {
+            apply_ability_action(gs, action, rng);
+            break;
+        }
+
+        // ---------------------------------------------------------------
         // Pass / Draw — no state mutation needed here
         // ---------------------------------------------------------------
         case ActionType::Pass:
@@ -487,6 +517,53 @@ void apply_evolve(GameState& gs, int player, const CardId& evolution_card_id, in
 
     // Remove the evolution card from hand
     hand.erase(it);
+}
+
+// ---------------------------------------------------------------------------
+// apply_ability_action
+// ---------------------------------------------------------------------------
+
+void apply_ability_action(GameState& gs, const Action& action, std::mt19937& rng)
+{
+    assert(action.type == ActionType::UseAbility &&
+           "apply_ability_action: action type must be UseAbility");
+
+    const int player   = gs.current_player;
+    const int slot_idx = action.slot_index;
+
+    assert(slot_idx >= 0 && slot_idx < 4 &&
+           "apply_ability_action: slot_index out of range");
+
+    auto& slot = gs.players[player].pokemon_slots[slot_idx];
+    assert(slot.has_value() && "apply_ability_action: no Pokemon in slot");
+
+    InPlayPokemon& ip = *slot;
+
+    assert(!ip.ability_used_this_turn &&
+           "apply_ability_action: ability already used this turn");
+
+    // Get the AbilityMechanic directly from the card — resolved at load time
+    const AbilityMechanic* mech = ip.card.ability.has_value()
+        ? ip.card.ability->mechanic.get()
+        : nullptr;
+
+    // If no mechanic found, treat as UnknownAbilityMechanic (no-op)
+    if (mech == nullptr)
+    {
+        ip.ability_used_this_turn = true;
+        return;
+    }
+
+    assert(mech->timing() == AbilityTiming::Activate &&
+           "apply_ability_action: cannot manually trigger a Passive ability");
+
+    mech->apply_activate(gs, player, slot_idx, rng);
+
+    // Mark ability as used this turn (slot may have changed if Pokemon was KO'd,
+    // so re-fetch the slot pointer safely)
+    auto& slot_after = gs.players[player].pokemon_slots[slot_idx];
+    if (slot_after.has_value())
+        slot_after->ability_used_this_turn = true;
 }
 
 } // namespace ptcgp_sim

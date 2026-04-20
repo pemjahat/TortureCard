@@ -1,4 +1,4 @@
-#include "ptcgp_sim/mechanic.h"
+#include "ptcgp_sim/attack_mechanic.h"
 #include "ptcgp_sim/game_state.h"
 
 #include <string>
@@ -51,8 +51,8 @@ void FlipNCoinDamage::from_params_json(const std::string& json)
 
 void FlipNCoinExtraDamage::from_params_json(const std::string& json)
 {
-    coins               = std::stoi(mech_extract_json_value(json, "coins"));
-    extra_damage        = std::stoi(mech_extract_json_value(json, "extra_damage"));
+    coins                = std::stoi(mech_extract_json_value(json, "coins"));
+    extra_damage         = std::stoi(mech_extract_json_value(json, "extra_damage"));
     include_fixed_damage = (mech_extract_json_value(json, "include_fixed_damage") == "true");
 }
 
