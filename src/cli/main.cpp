@@ -4,6 +4,7 @@
 #include <random>
 #include <string>
 #include <algorithm>
+#include <cstdlib>
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -461,9 +462,104 @@ int main(int argc, char* argv[])
 
     if (cmd == "sim") 
     {
-        ptcgp_sim::Simulator sim;
-        (void)sim;
-        std::cout << "sim: not yet implemented\n";
+        // Usage: ptcgp_cli sim <deck1.json> <deck2.json> [--verbose] [--seed <N>]
+        if (argc < 4)
+        {
+            std::cerr << "sim: requires <deck1.json> <deck2.json>\n"
+                      << "  Optional flags:\n"
+                      << "    --verbose       Print turn-by-turn log\n"
+                      << "    --seed <N>      Use a fixed RNG seed for reproducibility\n";
+            return 1;
+        }
+
+        const std::string deck1_path = argv[2];
+        const std::string deck2_path = argv[3];
+
+        bool     verbose   = false;
+        uint64_t seed      = std::random_device{}();
+        bool     has_seed  = false;
+
+        for (int i = 4; i < argc; ++i)
+        {
+            std::string flag = argv[i];
+            if (flag == "--verbose")
+            {
+                verbose = true;
+            }
+            else if (flag == "--seed" && i + 1 < argc)
+            {
+                seed     = static_cast<uint64_t>(std::stoull(argv[++i]));
+                has_seed = true;
+            }
+        }
+
+        std::cout << "Loading database...\n";
+        ptcgp_sim::Database db = ptcgp_sim::Database::load();
+        std::cout << "Loaded " << db.size() << " cards.\n\n";
+
+        ptcgp_sim::Deck deck0 = ptcgp_sim::Deck::load_from_json(deck1_path, db);
+        ptcgp_sim::Deck deck1 = ptcgp_sim::Deck::load_from_json(deck2_path, db);
+
+        // Validate both decks
+        std::vector<std::string> errors0, errors1;
+        bool valid0 = deck0.validate(errors0);
+        bool valid1 = deck1.validate(errors1);
+
+        if (!valid0)
+        {
+            std::cerr << "Deck 1 validation FAILED:\n";
+            for (const auto& e : errors0) std::cerr << "  [ERROR] " << e << "\n";
+            return 1;
+        }
+        if (!valid1)
+        {
+            std::cerr << "Deck 2 validation FAILED:\n";
+            for (const auto& e : errors1) std::cerr << "  [ERROR] " << e << "\n";
+            return 1;
+        }
+
+        std::cout << "Deck 1 energy: ";
+        for (std::size_t i = 0; i < deck0.energy_types.size(); ++i)
+        {
+            if (i) std::cout << ", ";
+            std::cout << ptcgp_sim::energy_to_string(deck0.energy_types[i]);
+        }
+        std::cout << "\n";
+
+        std::cout << "Deck 2 energy: ";
+        for (std::size_t i = 0; i < deck1.energy_types.size(); ++i)
+        {
+            if (i) std::cout << ", ";
+            std::cout << ptcgp_sim::energy_to_string(deck1.energy_types[i]);
+        }
+        std::cout << "\n";
+
+        if (has_seed)
+            std::cout << "RNG seed: " << seed << "\n";
+        std::cout << "\n";
+
+        // Run the game
+        std::mt19937 rng(static_cast<uint32_t>(seed));
+        ptcgp_sim::AttachAttackPlayer player0;
+        ptcgp_sim::AttachAttackPlayer player1;
+        ptcgp_sim::GameLoop loop(&player0, &player1, rng, verbose);
+
+        ptcgp_sim::GameState gs = ptcgp_sim::GameState::make(deck0, deck1);
+        ptcgp_sim::SimulationResult result = loop.run(gs);
+
+        // Print result
+        std::cout << "\n=== Game Over ===\n";
+        std::cout << "Turns played : " << result.turns << "\n";
+        std::cout << "Player 0 pts : " << gs.players[0].points << "\n";
+        std::cout << "Player 1 pts : " << gs.players[1].points << "\n";
+
+        if (result.winner == 0)
+            std::cout << "Winner       : Player 0\n";
+        else if (result.winner == 1)
+            std::cout << "Winner       : Player 1\n";
+        else
+            std::cout << "Result       : Draw (turn limit reached)\n";
+
         return 0;
     }
 

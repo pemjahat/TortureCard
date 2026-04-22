@@ -1,12 +1,22 @@
 #include "ptcgp_sim/simulator.h"
+#include "ptcgp_sim/attach_attack_player.h"
+#include "ptcgp_sim/game_loop.h"
+
+#include <random>
 
 namespace ptcgp_sim 
 {
 
-SimulationResult Simulator::run(const Deck& /*deck_p1*/, const Deck& /*deck_p2*/) 
+SimulationResult Simulator::run(const Deck& deck_p0, const Deck& deck_p1) 
 {
-    // TODO: implement full game loop
-    return SimulationResult{};
+    AttachAttackPlayer player0;
+    AttachAttackPlayer player1;
+
+    std::mt19937 rng(std::random_device{}());
+    GameLoop loop(&player0, &player1, rng, /*verbose=*/false);
+
+    GameState gs = GameState::make(deck_p0, deck_p1);
+    return loop.run(gs);
 }
 
 void Simulator::run_batch(const Deck& deck_p1, const Deck& deck_p2,

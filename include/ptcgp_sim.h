@@ -11,3 +11,6 @@
 #include "ptcgp_sim/action.h"
 #include "ptcgp_sim/move_generation.h"
 #include "ptcgp_sim/simulator.h"
+#include "ptcgp_sim/player.h"
+#include "ptcgp_sim/attach_attack_player.h"
+#include "ptcgp_sim/game_loop.h"
