@@ -189,6 +189,10 @@ void resolve_knockouts(GameState& gs, int attacking_player)
         if (ip.attached_tool.has_value())
             gs.players[ko_player].discard_pile.push_back(*ip.attached_tool);
 
+        // Move attached energies to the energy discard bin
+        for (EnergyType e : ip.attached_energy)
+            gs.players[ko_player].energy_discard.push_back(e);
+
         // Award prize points: 1 for regular, 2 for ex, 3 for Mega
         const int pts = ip.card.knockout_points();
 
@@ -377,14 +381,14 @@ void apply_action(GameState& gs, const Action& action, std::mt19937& rng)
             assert(active_slot.has_value() && "apply_action: Retreat — no active Pokemon");
             assert(bench_slot.has_value()  && "apply_action: Retreat — bench slot is empty");
 
-            // Pay retreat cost by removing energy from active
+            // Pay retreat cost: retreat cost is always Colorless (any energy counts).
+            // Remove one energy per cost entry and send it to the energy discard bin.
             InPlayPokemon& active = *active_slot;
-            for (EnergyType cost : active.card.retreat_cost)
+            const int cost_count = static_cast<int>(active.card.retreat_cost.size());
+            for (int i = 0; i < cost_count && !active.attached_energy.empty(); ++i)
             {
-                auto eit = std::find(active.attached_energy.begin(),
-                                     active.attached_energy.end(), cost);
-                if (eit != active.attached_energy.end())
-                    active.attached_energy.erase(eit);
+                gs.players[player].energy_discard.push_back(active.attached_energy.back());
+                active.attached_energy.pop_back();
             }
 
             // Clear volatile status on the retreating Pokemon

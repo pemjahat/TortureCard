@@ -659,6 +659,265 @@ static void test_item_does_not_set_supporter_flag()
 }
 
 // ============================================================================
+// REQUIREMENT 4: Energy Discard Bin
+// ============================================================================
+
+// ---------------------------------------------------------------------------
+// Test R4-1: KO'd Pokemon's attached energies go to energy_discard
+// ---------------------------------------------------------------------------
+static void test_ko_energies_moved_to_energy_discard()
+{
+    using namespace ptcgp_sim;
+
+    Attack ko_punch = make_attack("KO Punch", 60);
+    Card attacker = make_pokemon("A1", 1, "Attacker", 60,
+                                  EnergyType::Colorless, 0, {ko_punch});
+    Card defender = make_pokemon("A1", 2, "Defender", 60);
+
+    GameState gs = make_game(attacker, defender);
+    // Attach two energies to the defender
+    gs.players[1].pokemon_slots[0]->attached_energy.push_back(EnergyType::Fire);
+    gs.players[1].pokemon_slots[0]->attached_energy.push_back(EnergyType::Water);
+    // Give bench so game doesn't end
+    Card bench_mon = make_pokemon("A1", 3, "BenchMon", 60);
+    InPlayPokemon bench_ip; bench_ip.card = bench_mon;
+    gs.players[1].pokemon_slots[1] = bench_ip;
+
+    std::mt19937 rng(42);
+    apply_action(gs, Action::attack(0), rng);
+
+    // Slot cleared
+    REQUIRE(!gs.players[1].pokemon_slots[0].has_value());
+    // Both energies in energy_discard
+    REQUIRE(gs.players[1].energy_discard.size() == 2);
+    bool has_fire  = std::find(gs.players[1].energy_discard.begin(),
+                                gs.players[1].energy_discard.end(),
+                                EnergyType::Fire) != gs.players[1].energy_discard.end();
+    bool has_water = std::find(gs.players[1].energy_discard.begin(),
+                                gs.players[1].energy_discard.end(),
+                                EnergyType::Water) != gs.players[1].energy_discard.end();
+    REQUIRE(has_fire);
+    REQUIRE(has_water);
+    // Regular discard pile has only the Pokemon card (not the energies)
+    REQUIRE(gs.players[1].discard_pile.size() == 1);
+    REQUIRE(gs.players[1].discard_pile[0].name == "Defender");
+
+    std::cout << "  [PASS] test_ko_energies_moved_to_energy_discard\n";
+}
+
+// ---------------------------------------------------------------------------
+// Test R4-2: KO'd Pokemon with zero energies leaves energy_discard empty
+// ---------------------------------------------------------------------------
+static void test_ko_no_energy_leaves_energy_discard_empty()
+{
+    using namespace ptcgp_sim;
+
+    Attack ko_punch = make_attack("KO Punch", 60);
+    Card attacker = make_pokemon("A1", 1, "Attacker", 60,
+                                  EnergyType::Colorless, 0, {ko_punch});
+    Card defender = make_pokemon("A1", 2, "Defender", 60);
+
+    GameState gs = make_game(attacker, defender);
+    // No energy attached to defender
+    Card bench_mon = make_pokemon("A1", 3, "BenchMon", 60);
+    InPlayPokemon bench_ip; bench_ip.card = bench_mon;
+    gs.players[1].pokemon_slots[1] = bench_ip;
+
+    std::mt19937 rng(42);
+    apply_action(gs, Action::attack(0), rng);
+
+    REQUIRE(gs.players[1].energy_discard.empty());
+
+    std::cout << "  [PASS] test_ko_no_energy_leaves_energy_discard_empty\n";
+}
+
+// ---------------------------------------------------------------------------
+// Test R4-3: KO with tool — tool goes to discard_pile, energy goes to energy_discard
+// ---------------------------------------------------------------------------
+static void test_ko_tool_to_discard_pile_energy_to_energy_discard()
+{
+    using namespace ptcgp_sim;
+
+    Attack ko_punch = make_attack("KO Punch", 60);
+    Card attacker = make_pokemon("A1", 1, "Attacker", 60,
+                                  EnergyType::Colorless, 0, {ko_punch});
+    Card defender = make_pokemon("A1", 2, "Defender", 60);
+    Card tool     = make_trainer("A1", 88, "Rocky Helmet", TrainerType::Tool);
+
+    GameState gs = make_game(attacker, defender);
+    gs.players[1].pokemon_slots[0]->attached_tool = tool;
+    gs.players[1].pokemon_slots[0]->attached_energy.push_back(EnergyType::Psychic);
+    Card bench_mon = make_pokemon("A1", 3, "BenchMon", 60);
+    InPlayPokemon bench_ip; bench_ip.card = bench_mon;
+    gs.players[1].pokemon_slots[1] = bench_ip;
+
+    std::mt19937 rng(42);
+    apply_action(gs, Action::attack(0), rng);
+
+    // Tool and Pokemon card in discard_pile
+    REQUIRE(gs.players[1].discard_pile.size() == 2);
+    bool has_defender = false, has_tool = false;
+    for (const auto& c : gs.players[1].discard_pile)
+    {
+        if (c.name == "Defender")     has_defender = true;
+        if (c.name == "Rocky Helmet") has_tool     = true;
+    }
+    REQUIRE(has_defender);
+    REQUIRE(has_tool);
+
+    // Energy in energy_discard (not in discard_pile)
+    REQUIRE(gs.players[1].energy_discard.size() == 1);
+    REQUIRE(gs.players[1].energy_discard[0] == EnergyType::Psychic);
+
+    std::cout << "  [PASS] test_ko_tool_to_discard_pile_energy_to_energy_discard\n";
+}
+
+// ---------------------------------------------------------------------------
+// Test R4-4: Retreat cost energies go to energy_discard; remaining stay on Pokemon
+// ---------------------------------------------------------------------------
+static void test_retreat_cost_energies_go_to_energy_discard()
+{
+    using namespace ptcgp_sim;
+
+    // Pokemon with retreat cost of 1 Colorless
+    Card active_card = make_pokemon("A1", 10, "Slowpoke", 60);
+    active_card.retreat_cost = {EnergyType::Colorless};
+
+    Card bench_card = make_pokemon("A1", 11, "Magikarp", 30);
+
+    Card dummy = make_pokemon("XX", 99, "Dummy", 60);
+    Deck deck  = make_deck(std::vector<ptcgp_sim::Card>(20, dummy));
+
+    GameState gs = GameState::make(deck, deck);
+    gs.turn_phase     = TurnPhase::Action;
+    gs.turn_number    = 2;
+    gs.current_player = 0;
+
+    InPlayPokemon active_ip; active_ip.card = active_card; active_ip.played_this_turn = false;
+    // Attach 2 energies — only 1 should be paid as retreat cost
+    active_ip.attached_energy.push_back(EnergyType::Fire);
+    active_ip.attached_energy.push_back(EnergyType::Fire);
+
+    InPlayPokemon bench_ip; bench_ip.card = bench_card; bench_ip.played_this_turn = false;
+
+    gs.players[0].pokemon_slots[0] = active_ip;
+    gs.players[0].pokemon_slots[1] = bench_ip;
+
+    // Dummy opponent active
+    InPlayPokemon opp_ip; opp_ip.card = dummy; opp_ip.played_this_turn = false;
+    gs.players[1].pokemon_slots[0] = opp_ip;
+
+    std::mt19937 rng(42);
+    apply_action(gs, Action::retreat(1), rng);
+
+    // Exactly 1 energy in energy_discard (the retreat cost)
+    REQUIRE(gs.players[0].energy_discard.size() == 1);
+    REQUIRE(gs.players[0].energy_discard[0] == EnergyType::Fire);
+
+    // The retreated Pokemon (now on bench slot 1) still has 1 energy
+    REQUIRE(gs.players[0].pokemon_slots[1].has_value());
+    REQUIRE(gs.players[0].pokemon_slots[1]->attached_energy.size() == 1);
+    REQUIRE(gs.players[0].pokemon_slots[1]->attached_energy[0] == EnergyType::Fire);
+
+    std::cout << "  [PASS] test_retreat_cost_energies_go_to_energy_discard\n";
+}
+
+// ---------------------------------------------------------------------------
+// Test R4-5: Free retreat (cost 0) leaves energy_discard empty
+// ---------------------------------------------------------------------------
+static void test_free_retreat_no_energy_discard()
+{
+    using namespace ptcgp_sim;
+
+    // Pokemon with zero retreat cost
+    Card active_card = make_pokemon("A1", 20, "Jolteon", 70);
+    active_card.retreat_cost = {}; // free
+
+    Card bench_card = make_pokemon("A1", 21, "Eevee", 50);
+
+    Card dummy = make_pokemon("XX", 99, "Dummy", 60);
+    Deck deck  = make_deck(std::vector<ptcgp_sim::Card>(20, dummy));
+
+    GameState gs = GameState::make(deck, deck);
+    gs.turn_phase     = TurnPhase::Action;
+    gs.turn_number    = 2;
+    gs.current_player = 0;
+
+    InPlayPokemon active_ip; active_ip.card = active_card; active_ip.played_this_turn = false;
+    active_ip.attached_energy.push_back(EnergyType::Lightning);
+
+    InPlayPokemon bench_ip; bench_ip.card = bench_card; bench_ip.played_this_turn = false;
+
+    gs.players[0].pokemon_slots[0] = active_ip;
+    gs.players[0].pokemon_slots[1] = bench_ip;
+
+    InPlayPokemon opp_ip; opp_ip.card = dummy; opp_ip.played_this_turn = false;
+    gs.players[1].pokemon_slots[0] = opp_ip;
+
+    std::mt19937 rng(42);
+    apply_action(gs, Action::retreat(1), rng);
+
+    // No energies discarded
+    REQUIRE(gs.players[0].energy_discard.empty());
+    // Energy still on the Pokemon (now on bench)
+    REQUIRE(gs.players[0].pokemon_slots[1].has_value());
+    REQUIRE(gs.players[0].pokemon_slots[1]->attached_energy.size() == 1);
+
+    std::cout << "  [PASS] test_free_retreat_no_energy_discard\n";
+}
+
+// ---------------------------------------------------------------------------
+// Test R4-6: Multiple KOs in one resolve_knockouts — each player's energy_discard updated independently
+// ---------------------------------------------------------------------------
+static void test_multi_ko_energy_discard_independent()
+{
+    using namespace ptcgp_sim;
+
+    Card p0_active = make_pokemon("A1", 1, "P0Active", 60);
+    Card p1_active = make_pokemon("A1", 2, "P1Active", 60);
+
+    Card dummy = make_pokemon("XX", 99, "Dummy", 60);
+    Deck deck  = make_deck(std::vector<ptcgp_sim::Card>(20, dummy));
+
+    GameState gs = GameState::make(deck, deck);
+    gs.turn_phase     = TurnPhase::Action;
+    gs.current_player = 0;
+
+    InPlayPokemon ip0; ip0.card = p0_active; ip0.played_this_turn = false;
+    ip0.damage_counters = 60; // pre-KO'd
+    ip0.attached_energy.push_back(EnergyType::Grass);
+    ip0.attached_energy.push_back(EnergyType::Grass);
+
+    InPlayPokemon ip1; ip1.card = p1_active; ip1.played_this_turn = false;
+    ip1.damage_counters = 60; // pre-KO'd
+    ip1.attached_energy.push_back(EnergyType::Fire);
+
+    // Give each player a bench so the game doesn't end on no-bench check
+    Card bench0 = make_pokemon("A1", 3, "Bench0", 60);
+    Card bench1 = make_pokemon("A1", 4, "Bench1", 60);
+    InPlayPokemon bench_ip0; bench_ip0.card = bench0;
+    InPlayPokemon bench_ip1; bench_ip1.card = bench1;
+
+    gs.players[0].pokemon_slots[0] = ip0;
+    gs.players[0].pokemon_slots[1] = bench_ip0;
+    gs.players[1].pokemon_slots[0] = ip1;
+    gs.players[1].pokemon_slots[1] = bench_ip1;
+
+    resolve_knockouts(gs, 0);
+
+    // Player 0: 2 Grass energies discarded
+    REQUIRE(gs.players[0].energy_discard.size() == 2);
+    REQUIRE(gs.players[0].energy_discard[0] == EnergyType::Grass);
+    REQUIRE(gs.players[0].energy_discard[1] == EnergyType::Grass);
+
+    // Player 1: 1 Fire energy discarded
+    REQUIRE(gs.players[1].energy_discard.size() == 1);
+    REQUIRE(gs.players[1].energy_discard[0] == EnergyType::Fire);
+
+    std::cout << "  [PASS] test_multi_ko_energy_discard_independent\n";
+}
+
+// ============================================================================
 // main
 // ============================================================================
 
@@ -688,6 +947,14 @@ int main()
     RUN_TEST(test_pokeball_removes_card_from_deck);
     RUN_TEST(test_unknown_item_discarded_no_crash);
     RUN_TEST(test_item_does_not_set_supporter_flag);
+
+    // Requirement 4: Energy Discard Bin
+    RUN_TEST(test_ko_energies_moved_to_energy_discard);
+    RUN_TEST(test_ko_no_energy_leaves_energy_discard_empty);
+    RUN_TEST(test_ko_tool_to_discard_pile_energy_to_energy_discard);
+    RUN_TEST(test_retreat_cost_energies_go_to_energy_discard);
+    RUN_TEST(test_free_retreat_no_energy_discard);
+    RUN_TEST(test_multi_ko_energy_discard_independent);
 
     std::cout << "\n";
     if (g_failures == 0)

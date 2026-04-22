@@ -85,6 +85,7 @@ struct PlayerState
     Deck                                  deck;
     std::vector<Card>                     hand;
     std::vector<Card>                     discard_pile;
+    std::vector<EnergyType>               energy_discard; // Energies discarded from KO'd or retreated Pokemon
     int                                   points{0};  // Prize points scored (0-3)
 
     // Slot 0 = Active Pokemon, slots 1-3 = Bench

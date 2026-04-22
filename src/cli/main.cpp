@@ -200,10 +200,11 @@ static int cmd_util(int argc, char* argv[])
         {
             const auto& p = gs.players[i];
             std::cout << "--- Player " << i << " ---\n";
-            std::cout << "  Deck size   : " << p.deck.total_cards() << "\n";
-            std::cout << "  Hand size   : " << p.hand.size() << "\n";
-            std::cout << "  Discard pile: " << p.discard_pile.size() << "\n";
-            std::cout << "  Points      : " << p.points << "\n";
+            std::cout << "  Deck size      : " << p.deck.total_cards() << "\n";
+            std::cout << "  Hand size      : " << p.hand.size() << "\n";
+            std::cout << "  Discard pile   : " << p.discard_pile.size() << "\n";
+            std::cout << "  Energy discard : " << p.energy_discard.size() << "\n";
+            std::cout << "  Points         : " << p.points << "\n";
             std::cout << "  Active slot : " << (p.active().has_value() ? p.active()->card.name : "(empty)") << "\n";
             std::cout << "  Bench slots : ";
             int bench_count = 0;
@@ -309,6 +310,22 @@ static int cmd_util(int argc, char* argv[])
             const auto& player = gs.players[p];
             std::cout << "--- Player " << p << " ---\n";
             std::cout << "  Points: " << player.points << "\n";
+            // Energy discard bin
+            std::cout << "  Energy discard: ";
+            if (player.energy_discard.empty())
+            {
+                std::cout << "(none)\n";
+            }
+            else
+            {
+                std::cout << "[";
+                for (std::size_t ei = 0; ei < player.energy_discard.size(); ++ei)
+                {
+                    if (ei) std::cout << ", ";
+                    std::cout << ptcgp_sim::energy_to_string(player.energy_discard[ei]);
+                }
+                std::cout << "]\n";
+            }
             std::cout << "  Hand (" << player.hand.size() << " cards):\n";
             for (const auto& c : player.hand)
             {
