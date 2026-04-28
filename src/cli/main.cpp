@@ -461,7 +461,7 @@ int main(int argc, char* argv[])
     {
         std::cout << "Usage: ptcgp_cli <command> [options]\n"
                   << "Commands:\n"
-                  << "  sim   <deck1.json> <deck2.json> [--games N]  Run simulation\n"
+                  << "  sim   <deck1.json> <deck2.json> [-player=a|w] [--seed N]  Run simulation\n"
                   << "  util  --fetch_card <ID>                      Print card details\n"
                   << "  util  --validate_deck <deck.json>            Validate a deck\n"
                   << "  util  --simulate_turn <d1.json> <d2.json>    Initialize and print game state\n"
@@ -479,22 +479,25 @@ int main(int argc, char* argv[])
 
     if (cmd == "sim") 
     {
-        // Usage: ptcgp_cli sim <deck1.json> <deck2.json> [--verbose] [--seed <N>]
+        // Usage: ptcgp_cli sim <deck1.json> <deck2.json> [--verbose] [--seed <N>] [-player=a|w]
         if (argc < 4)
         {
             std::cerr << "sim: requires <deck1.json> <deck2.json>\n"
                       << "  Optional flags:\n"
                       << "    --verbose       Print turn-by-turn log\n"
-                      << "    --seed <N>      Use a fixed RNG seed for reproducibility\n";
+                      << "    --seed <N>      Use a fixed RNG seed for reproducibility\n"
+                      << "    -player=a       Use AttachAttack players (default)\n"
+                      << "    -player=w       Use WeightedRandom players\n";
             return 1;
         }
 
         const std::string deck1_path = argv[2];
         const std::string deck2_path = argv[3];
 
-        bool     verbose   = false;
-        uint64_t seed      = std::random_device{}();
-        bool     has_seed  = false;
+        bool     verbose     = false;
+        uint64_t seed        = std::random_device{}();
+        bool     has_seed    = false;
+        char     player_mode = 'a';
 
         for (int i = 4; i < argc; ++i)
         {
@@ -507,6 +510,25 @@ int main(int argc, char* argv[])
             {
                 seed     = static_cast<uint64_t>(std::stoull(argv[++i]));
                 has_seed = true;
+            }
+            else if (flag == "-player=a")
+            {
+                player_mode = 'a';
+            }
+            else if (flag == "-player=w")
+            {
+                player_mode = 'w';
+            }
+            else if (flag.rfind("-player=", 0) == 0)
+            {
+                std::cerr << "sim: unsupported player mode \"" << flag << "\"\n"
+                          << "  Supported values: -player=a, -player=w\n";
+                return 1;
+            }
+            else
+            {
+                std::cerr << "sim: unknown option \"" << flag << "\"\n";
+                return 1;
             }
         }
 
@@ -553,16 +575,29 @@ int main(int argc, char* argv[])
 
         if (has_seed)
             std::cout << "RNG seed: " << seed << "\n";
-        std::cout << "\n";
+        std::cout << "Player mode: "
+                  << (player_mode == 'w' ? "WeightedRandom" : "AttachAttack")
+                  << "\n\n";
 
         // Run the game
         std::mt19937 rng(static_cast<uint32_t>(seed));
-        ptcgp_sim::AttachAttackPlayer player0;
-        ptcgp_sim::AttachAttackPlayer player1;
-        ptcgp_sim::GameLoop loop(&player0, &player1, rng, verbose);
-
         ptcgp_sim::GameState gs = ptcgp_sim::GameState::make(deck0, deck1);
-        ptcgp_sim::SimulationResult result = loop.run(gs);
+        ptcgp_sim::SimulationResult result;
+
+        if (player_mode == 'w')
+        {
+            ptcgp_sim::WeightedRandomPlayer player0(static_cast<uint32_t>(seed));
+            ptcgp_sim::WeightedRandomPlayer player1(static_cast<uint32_t>(seed + 1));
+            ptcgp_sim::GameLoop loop(&player0, &player1, rng, verbose);
+            result = loop.run(gs);
+        }
+        else
+        {
+            ptcgp_sim::AttachAttackPlayer player0;
+            ptcgp_sim::AttachAttackPlayer player1;
+            ptcgp_sim::GameLoop loop(&player0, &player1, rng, verbose);
+            result = loop.run(gs);
+        }
 
         // Print result
         std::cout << "\n=== Game Over ===\n";

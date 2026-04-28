@@ -12,7 +12,6 @@ namespace ptcgp_sim
 // ---------------------------------------------------------------------------
 enum class ActionType
 {
-    Draw,           // Draw a card from the deck
     PlayPokemon,    // Place a Basic Pokemon from hand onto an empty slot
     AttachEnergy,   // Attach the turn's generated energy to a Pokemon in play
     Attack,         // Use the active Pokemon's attack at the given index
@@ -44,11 +43,6 @@ struct Action
     // ---------------------------------------------------------------------------
     // Factory helpers — construct a correctly-filled Action for each type
     // ---------------------------------------------------------------------------
-    static Action draw()
-    {
-        Action a; a.type = ActionType::Draw; return a;
-    }
-
     static Action play_pokemon(const CardId& id, int slot)
     {
         Action a; a.type = ActionType::PlayPokemon; a.card_id = id; a.slot_index = slot; return a;

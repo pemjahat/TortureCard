@@ -9,9 +9,6 @@ std::string Action::to_string() const
     std::ostringstream oss;
     switch (type)
     {
-        case ActionType::Draw:
-            oss << "Draw";
-            break;
         case ActionType::PlayPokemon:
             oss << "PlayPokemon(" << card_id.to_string() << ", slot=" << slot_index << ")";
             break;

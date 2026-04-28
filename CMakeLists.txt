@@ -195,6 +195,10 @@ add_ptcgp_test(ptcgp_test_game_loop
     "${CMAKE_SOURCE_DIR}/tests/test_game_loop.cpp"
     GameLoopTests)
 
+add_ptcgp_test(ptcgp_test_weighted_random_player
+    "${CMAKE_SOURCE_DIR}/tests/test_weighted_random_player.cpp"
+    WeightedRandomPlayerTests)
+
 # ---------------------------------------------------------------------------
 # Summary
 # ---------------------------------------------------------------------------

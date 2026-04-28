@@ -465,10 +465,9 @@ void apply_action(GameState& gs, const Action& action, std::mt19937& rng)
         }
 
         // ---------------------------------------------------------------
-        // Pass / Draw — no state mutation needed here
+        // Pass — no state mutation needed here
         // ---------------------------------------------------------------
         case ActionType::Pass:
-        case ActionType::Draw:
         default:
             break;
     }
