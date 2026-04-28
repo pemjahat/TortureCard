@@ -5,6 +5,7 @@
 #include "ptcgp_sim/card.h"
 #include "ptcgp_sim/database.h"
 #include "ptcgp_sim/deck.h"
+#include "test_support.h"
 
 #include <algorithm>
 #include <iostream>
@@ -12,32 +13,6 @@
 #include <string>
 #include <vector>
 
-// ---------------------------------------------------------------------------
-// Test infrastructure
-// ---------------------------------------------------------------------------
-
-// Macro that throws with file, line, and expression on failure.
-#define REQUIRE(expr)                                                         \
-    do {                                                                      \
-        if (!(expr)) {                                                        \
-            throw std::runtime_error(                                         \
-                std::string(__FILE__) + ":" + std::to_string(__LINE__) +      \
-                " — REQUIRE failed: " #expr);                                 \
-        }                                                                     \
-    } while (false)
-
-static int g_failures = 0;
-
-#define RUN_TEST(func)                                                        \
-    do {                                                                      \
-        try {                                                                 \
-            func();                                                           \
-        } catch (const std::exception& e) {                                   \
-            std::cerr << "  [FAIL] " #func "\n"                               \
-                      << "         " << e.what() << "\n";                     \
-            ++g_failures;                                                     \
-        }                                                                     \
-    } while (false)
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -317,11 +292,5 @@ int main()
         ++g_failures;
     }
 
-    std::cout << "\n";
-    if (g_failures == 0) {
-        std::cout << "All tests passed.\n";
-    } else {
-        std::cerr << g_failures << " test(s) FAILED.\n";
-    }
-    return g_failures > 0 ? 1 : 0;
+    return ptcgp_test::print_summary();
 }

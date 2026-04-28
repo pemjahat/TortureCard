@@ -15,6 +15,7 @@
 #include "ptcgp_sim/move_generation.h"
 #include "ptcgp_sim/simulator.h"
 #include "ptcgp_sim/effects.h"
+#include "test_support.h"
 
 #include <algorithm>
 #include <iostream>
@@ -23,32 +24,6 @@
 #include <string>
 #include <vector>
 
-// ---------------------------------------------------------------------------
-// Test infrastructure
-// ---------------------------------------------------------------------------
-
-#define REQUIRE(expr)                                                          \
-    do {                                                                       \
-        if (!(expr)) {                                                         \
-            throw std::runtime_error(                                          \
-                std::string(__FILE__) + ":" + std::to_string(__LINE__) +       \
-                " — REQUIRE failed: " #expr);                                  \
-        }                                                                      \
-    } while (false)
-
-static int g_failures = 0;
-
-#define RUN_TEST(func)                                                         \
-    do {                                                                       \
-        try {                                                                  \
-            func();                                                            \
-            std::cout << "  [PASS] " #func "\n";                               \
-        } catch (const std::exception& e) {                                    \
-            std::cerr << "  [FAIL] " #func "\n"                                \
-                      << "         " << e.what() << "\n";                      \
-            ++g_failures;                                                      \
-        }                                                                      \
-    } while (false)
 
 // ---------------------------------------------------------------------------
 // Shared helpers
@@ -930,52 +905,46 @@ int main()
 
     // Requirement 1: AttachAttackPlayer Decision Logic
     std::cout << "\n-- Req 1: AttachAttackPlayer Decision Logic --\n";
-    RUN_TEST(test_player_prefers_attach_when_no_energy);
-    RUN_TEST(test_player_prefers_attack_when_energy_met);
-    RUN_TEST(test_player_fallback_to_first_move);
-    RUN_TEST(test_player_returns_pass_when_only_pass);
-    RUN_TEST(test_player_picks_first_attack_index);
+    RUN_TEST_WITH_PASS(test_player_prefers_attach_when_no_energy);
+    RUN_TEST_WITH_PASS(test_player_prefers_attack_when_energy_met);
+    RUN_TEST_WITH_PASS(test_player_fallback_to_first_move);
+    RUN_TEST_WITH_PASS(test_player_returns_pass_when_only_pass);
+    RUN_TEST_WITH_PASS(test_player_picks_first_attack_index);
 
     // Requirement 2: Setup Phase Behavior
     std::cout << "\n-- Req 2: Setup Phase Behavior --\n";
-    RUN_TEST(test_setup_both_actives_placed);
-    RUN_TEST(test_setup_places_bench_when_multiple_basics);
-    RUN_TEST(test_setup_ends_at_draw_phase_player0);
-    RUN_TEST(test_setup_turn_number_is_1);
+    RUN_TEST_WITH_PASS(test_setup_both_actives_placed);
+    RUN_TEST_WITH_PASS(test_setup_places_bench_when_multiple_basics);
+    RUN_TEST_WITH_PASS(test_setup_ends_at_draw_phase_player0);
+    RUN_TEST_WITH_PASS(test_setup_turn_number_is_1);
 
     // Requirement 3: Turn Phase Sequencing
     std::cout << "\n-- Req 3: Turn Phase Sequencing --\n";
-    RUN_TEST(test_pass_skips_attack);
-    RUN_TEST(test_attack_sets_attacked_flag);
-    RUN_TEST(test_cleanup_switches_player);
-    RUN_TEST(test_cleanup_increments_turn_number);
-    RUN_TEST(test_draw_phase_increases_hand_size);
-    RUN_TEST(test_draw_phase_empty_deck_no_crash);
+    RUN_TEST_WITH_PASS(test_pass_skips_attack);
+    RUN_TEST_WITH_PASS(test_attack_sets_attacked_flag);
+    RUN_TEST_WITH_PASS(test_cleanup_switches_player);
+    RUN_TEST_WITH_PASS(test_cleanup_increments_turn_number);
+    RUN_TEST_WITH_PASS(test_draw_phase_increases_hand_size);
+    RUN_TEST_WITH_PASS(test_draw_phase_empty_deck_no_crash);
 
     // Requirement 4: Energy Generation
     std::cout << "\n-- Req 4: Energy Generation --\n";
-    RUN_TEST(test_no_energy_on_turn_1);
-    RUN_TEST(test_energy_generated_on_turn_2_plus);
-    RUN_TEST(test_single_energy_type_always_matches);
-    RUN_TEST(test_attach_energy_clears_current_energy);
-    RUN_TEST(test_reset_turn_flags_clears_energy);
+    RUN_TEST_WITH_PASS(test_no_energy_on_turn_1);
+    RUN_TEST_WITH_PASS(test_energy_generated_on_turn_2_plus);
+    RUN_TEST_WITH_PASS(test_single_energy_type_always_matches);
+    RUN_TEST_WITH_PASS(test_attach_energy_clears_current_energy);
+    RUN_TEST_WITH_PASS(test_reset_turn_flags_clears_energy);
 
     // Requirement 5: Full Game Loop Outcomes
     std::cout << "\n-- Req 5: Full Game Loop Outcomes --\n";
-    RUN_TEST(test_full_game_one_pokemon_each_ko_wins);
-    RUN_TEST(test_full_game_3_points_wins);
-    RUN_TEST(test_result_turns_matches_game_state);
-    RUN_TEST(test_turn_limit_declares_draw);
-    RUN_TEST(test_bench_promotion_after_ko);
-    RUN_TEST(test_poison_adds_10_damage_per_cleanup);
-    RUN_TEST(test_poison_ko_during_cleanup_awards_point);
-    RUN_TEST(test_simulator_run_returns_valid_result);
+    RUN_TEST_WITH_PASS(test_full_game_one_pokemon_each_ko_wins);
+    RUN_TEST_WITH_PASS(test_full_game_3_points_wins);
+    RUN_TEST_WITH_PASS(test_result_turns_matches_game_state);
+    RUN_TEST_WITH_PASS(test_turn_limit_declares_draw);
+    RUN_TEST_WITH_PASS(test_bench_promotion_after_ko);
+    RUN_TEST_WITH_PASS(test_poison_adds_10_damage_per_cleanup);
+    RUN_TEST_WITH_PASS(test_poison_ko_during_cleanup_awards_point);
+    RUN_TEST_WITH_PASS(test_simulator_run_returns_valid_result);
 
-    std::cout << "\n";
-    if (g_failures == 0)
-        std::cout << "All tests passed.\n";
-    else
-        std::cerr << g_failures << " test(s) FAILED.\n";
-
-    return g_failures > 0 ? 1 : 0;
+    return ptcgp_test::print_summary();
 }
