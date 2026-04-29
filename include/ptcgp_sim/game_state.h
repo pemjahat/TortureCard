@@ -75,6 +75,12 @@ struct InPlayPokemon
         }
         // Poisoned persists on bench in some rule sets; kept here for flexibility
     }
+
+    // Clear ALL status conditions including Poisoned (called after KO promotion).
+    void clear_all_status()
+    {
+        status = StatusCondition::None;
+    }
 };
 
 // ---------------------------------------------------------------------------

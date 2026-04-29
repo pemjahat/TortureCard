@@ -2,56 +2,22 @@
 // Uses try/catch-based testing — no external framework required.
 // Build target: ptcgp_test_deck (added in CMakeLists.txt)
 
-#include "ptcgp_sim/card.h"
+#include "test_helpers.h"
+
 #include "ptcgp_sim/database.h"
-#include "ptcgp_sim/deck.h"
-
-#include <algorithm>
-#include <iostream>
-#include <stdexcept>
-#include <string>
-#include <vector>
 
 // ---------------------------------------------------------------------------
-// Test infrastructure
-// ---------------------------------------------------------------------------
-
-// Macro that throws with file, line, and expression on failure.
-#define REQUIRE(expr)                                                         \
-    do {                                                                      \
-        if (!(expr)) {                                                        \
-            throw std::runtime_error(                                         \
-                std::string(__FILE__) + ":" + std::to_string(__LINE__) +      \
-                " — REQUIRE failed: " #expr);                                 \
-        }                                                                     \
-    } while (false)
-
-static int g_failures = 0;
-
-#define RUN_TEST(func)                                                        \
-    do {                                                                      \
-        try {                                                                 \
-            func();                                                           \
-        } catch (const std::exception& e) {                                   \
-            std::cerr << "  [FAIL] " #func "\n"                               \
-                      << "         " << e.what() << "\n";                     \
-            ++g_failures;                                                     \
-        }                                                                     \
-    } while (false)
-
-// ---------------------------------------------------------------------------
-// Helpers
+// Local helpers (deck-validation-test-specific)
 // ---------------------------------------------------------------------------
 
 // Build a Deck directly (no JSON / database needed) from a list of Cards.
-static ptcgp_sim::Deck make_deck(const std::vector<ptcgp_sim::Card>& cards,
-                                  const std::vector<ptcgp_sim::EnergyType>& energy_types)
+static ptcgp_sim::Deck make_deck_with_energy(
+    const std::vector<ptcgp_sim::Card>& cards,
+    const std::vector<ptcgp_sim::EnergyType>& energy_types)
 {
     ptcgp_sim::Deck d;
     d.energy_types = energy_types;
     d.cards        = cards;
-
-    // Build entries: one entry per unique card id, count = occurrences
     for (const auto& c : cards)
     {
         auto it = std::find_if(d.entries.begin(), d.entries.end(),
@@ -62,17 +28,6 @@ static ptcgp_sim::Deck make_deck(const std::vector<ptcgp_sim::Card>& cards,
             d.entries.push_back({c.id, 1});
     }
     return d;
-}
-
-static ptcgp_sim::Card make_card(const std::string& expansion, int number,
-                                  const std::string& name)
-{
-    ptcgp_sim::Card c;
-    c.id   = {expansion, number};
-    c.name = name;
-    c.type = ptcgp_sim::CardType::Pokemon;
-    c.hp   = 60;
-    return c;
 }
 
 // Produce N copies of the same card
@@ -89,8 +44,8 @@ static void test_valid_deck_passes()
 {
     using namespace ptcgp_sim;
 
-    Card bulbasaur = make_card("A1", 1, "Bulbasaur");
-    auto deck = make_deck(repeat_card(bulbasaur, 20), {EnergyType::Grass});
+    Card bulbasaur = make_pokemon("A1", 1, "Bulbasaur");
+    auto deck = make_deck_with_energy(repeat_card(bulbasaur, 20), {EnergyType::Grass});
 
     std::vector<std::string> errors;
     bool result = deck.validate(errors);
@@ -109,8 +64,8 @@ static void test_too_few_cards_fails()
 {
     using namespace ptcgp_sim;
 
-    Card bulbasaur = make_card("A1", 1, "Bulbasaur");
-    auto deck = make_deck(repeat_card(bulbasaur, 15), {EnergyType::Grass});
+    Card bulbasaur = make_pokemon("A1", 1, "Bulbasaur");
+    auto deck = make_deck_with_energy(repeat_card(bulbasaur, 15), {EnergyType::Grass});
 
     std::vector<std::string> errors;
     bool result = deck.validate(errors);
@@ -133,8 +88,8 @@ static void test_too_many_cards_fails()
 {
     using namespace ptcgp_sim;
 
-    Card bulbasaur = make_card("A1", 1, "Bulbasaur");
-    auto deck = make_deck(repeat_card(bulbasaur, 25), {EnergyType::Fire});
+    Card bulbasaur = make_pokemon("A1", 1, "Bulbasaur");
+    auto deck = make_deck_with_energy(repeat_card(bulbasaur, 25), {EnergyType::Fire});
 
     std::vector<std::string> errors;
     bool result = deck.validate(errors);
@@ -156,8 +111,8 @@ static void test_missing_energy_type_fails()
 {
     using namespace ptcgp_sim;
 
-    Card bulbasaur = make_card("A1", 1, "Bulbasaur");
-    auto deck = make_deck(repeat_card(bulbasaur, 20), {}); // no energy types
+    Card bulbasaur = make_pokemon("A1", 1, "Bulbasaur");
+    auto deck = make_deck_with_energy(repeat_card(bulbasaur, 20), {}); // no energy types
 
     std::vector<std::string> errors;
     bool result = deck.validate(errors);
@@ -176,8 +131,8 @@ static void test_multiple_errors_all_reported()
 {
     using namespace ptcgp_sim;
 
-    Card bulbasaur = make_card("A1", 1, "Bulbasaur");
-    auto deck = make_deck(repeat_card(bulbasaur, 10), {}); // 10 cards, no energy
+    Card bulbasaur = make_pokemon("A1", 1, "Bulbasaur");
+    auto deck = make_deck_with_energy(repeat_card(bulbasaur, 10), {}); // 10 cards, no energy
 
     std::vector<std::string> errors;
     bool result = deck.validate(errors);
@@ -196,10 +151,10 @@ static void test_is_valid_mirrors_validate()
 {
     using namespace ptcgp_sim;
 
-    Card bulbasaur = make_card("A1", 1, "Bulbasaur");
+    Card bulbasaur = make_pokemon("A1", 1, "Bulbasaur");
 
-    auto good_deck = make_deck(repeat_card(bulbasaur, 20), {EnergyType::Grass});
-    auto bad_deck  = make_deck(repeat_card(bulbasaur, 5),  {});
+    auto good_deck = make_deck_with_energy(repeat_card(bulbasaur, 20), {EnergyType::Grass});
+    auto bad_deck  = make_deck_with_energy(repeat_card(bulbasaur, 5),  {});
 
     REQUIRE(good_deck.is_valid()  == true);
     REQUIRE(bad_deck.is_valid()   == false);
@@ -215,15 +170,15 @@ static void test_total_cards_counts_entries()
 {
     using namespace ptcgp_sim;
 
-    Card a = make_card("A1", 1,  "Bulbasaur");
-    Card b = make_card("A1", 33, "Charmander");
+    Card a = make_pokemon("A1", 1,  "Bulbasaur");
+    Card b = make_pokemon("A1", 33, "Charmander");
 
     // 12 copies of a + 8 copies of b = 20
     std::vector<Card> cards;
     for (int i = 0; i < 12; ++i) cards.push_back(a);
     for (int i = 0; i < 8;  ++i) cards.push_back(b);
 
-    auto deck = make_deck(cards, {EnergyType::Grass, EnergyType::Fire});
+    auto deck = make_deck_with_energy(cards, {EnergyType::Grass, EnergyType::Fire});
 
     REQUIRE(deck.total_cards() == 20);
 

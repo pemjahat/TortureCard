@@ -302,7 +302,13 @@ void apply_action(GameState& gs, const Action& action, std::mt19937& rng)
             {
                 search_basic_to_hand(gs, player, rng);
             }
-            // Unknown items: card is already discarded — no further effect (no crash)
+            else
+            {
+                // TODO: resolve item effect for this card
+                // Card is already discarded above — no crash, but effect is unimplemented.
+                std::cerr << "[WARN] apply_action: unimplemented item effect for "
+                          << item_card.name << " (" << item_card.id.to_string() << ")\n";
+            }
             break;
         }
 
@@ -417,7 +423,7 @@ void apply_action(GameState& gs, const Action& action, std::mt19937& rng)
             hand.erase(it);
             gs.players[player].discard_pile.push_back(supporter_card);
             gs.supporter_played_this_turn = true;
-            // Supporter effects are out of scope for this iteration
+            // TODO: resolve supporter effect (e.g. Misty, Professor's Research, etc.)
             break;
         }
 
@@ -442,6 +448,7 @@ void apply_action(GameState& gs, const Action& action, std::mt19937& rng)
             }
             gs.current_stadium = stadium_card.id;
             gs.players[player].discard_pile.push_back(stadium_card);
+            // TODO: resolve stadium effect (e.g. Poke Center, Fossil Research Lab, etc.)
             break;
         }
 
@@ -460,6 +467,9 @@ void apply_action(GameState& gs, const Action& action, std::mt19937& rng)
         // ---------------------------------------------------------------
         case ActionType::UseAbility:
         {
+            // Delegates to apply_ability_action which dispatches on AbilityTiming::Activate.
+            // NOTE: Passive hooks (EndOfTurn, RetreatCost, GameState, OnEvolve, OnBenchPlay)
+            // are declared in PassiveHook but not yet wired into the game loop.
             apply_ability_action(gs, action, rng);
             break;
         }
@@ -468,7 +478,11 @@ void apply_action(GameState& gs, const Action& action, std::mt19937& rng)
         // Pass — no state mutation needed here
         // ---------------------------------------------------------------
         case ActionType::Pass:
+            break;
+
         default:
+            // If a new ActionType is added and not handled, assert at runtime.
+            assert(false && "apply_action: unhandled ActionType");
             break;
     }
 }

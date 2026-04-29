@@ -3,69 +3,16 @@
 //
 // Build target: ptcgp_test_attack_effects (added in CMakeLists.txt)
 
-#include "ptcgp_sim/action.h"
-#include "ptcgp_sim/card.h"
-#include "ptcgp_sim/deck.h"
+#include "test_helpers.h"
+
 #include "ptcgp_sim/effects.h"
-#include "ptcgp_sim/game_state.h"
 #include "ptcgp_sim/attack_mechanic.h"
 
-#include <algorithm>
-#include <iostream>
-#include <random>
-#include <stdexcept>
-#include <string>
-#include <vector>
+#include <memory>
 
 // ---------------------------------------------------------------------------
-// Test infrastructure
+// Local helpers (attack-test-specific)
 // ---------------------------------------------------------------------------
-
-#define REQUIRE(expr)                                                          \
-    do {                                                                       \
-        if (!(expr)) {                                                         \
-            throw std::runtime_error(                                          \
-                std::string(__FILE__) + ":" + std::to_string(__LINE__) +       \
-                " — REQUIRE failed: " #expr);                                  \
-        }                                                                      \
-    } while (false)
-
-static int g_failures = 0;
-
-#define RUN_TEST(func)                                                         \
-    do {                                                                       \
-        try {                                                                  \
-            func();                                                            \
-        } catch (const std::exception& e) {                                    \
-            std::cerr << "  [FAIL] " #func "\n"                                \
-                      << "         " << e.what() << "\n";                      \
-            ++g_failures;                                                      \
-        }                                                                      \
-    } while (false)
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-static ptcgp_sim::Card make_pokemon(
-    const std::string& expansion, int number,
-    const std::string& name,
-    int hp = 100,
-    ptcgp_sim::EnergyType energy_type = ptcgp_sim::EnergyType::Colorless,
-    const std::vector<ptcgp_sim::Attack>& attacks = {},
-    std::optional<ptcgp_sim::EnergyType> weakness = std::nullopt)
-{
-    ptcgp_sim::Card c;
-    c.id          = {expansion, number};
-    c.name        = name;
-    c.type        = ptcgp_sim::CardType::Pokemon;
-    c.hp          = hp;
-    c.energy_type = energy_type;
-    c.stage       = 0;
-    c.attacks     = attacks;
-    c.weakness    = weakness;
-    return c;
-}
 
 static ptcgp_sim::Attack make_attack_with_mechanic(
     const std::string& name,
@@ -86,45 +33,6 @@ static ptcgp_sim::Attack make_basic_attack(const std::string& name, int damage)
     a.damage = damage;
     return a;
 }
-
-// Build a minimal 20-card deck
-static ptcgp_sim::Deck make_deck(const ptcgp_sim::Card& filler)
-{
-    ptcgp_sim::Deck d;
-    d.energy_types = {ptcgp_sim::EnergyType::Colorless};
-    d.cards        = std::vector<ptcgp_sim::Card>(20, filler);
-    d.entries.push_back({filler.id, 20});
-    return d;
-}
-
-// Build a fresh GameState with both actives placed
-static ptcgp_sim::GameState make_game(
-    const ptcgp_sim::Card& p0_active,
-    const ptcgp_sim::Card& p1_active,
-    int p0_damage_counters = 0)
-{
-    using namespace ptcgp_sim;
-    Card dummy = make_pokemon("XX", 99, "Dummy", 100);
-    Deck deck  = make_deck(dummy);
-
-    GameState gs = GameState::make(deck, deck);
-    gs.turn_phase     = TurnPhase::Action;
-    gs.turn_number    = 2;
-    gs.current_player = 0;
-
-    InPlayPokemon ip0; ip0.card = p0_active; ip0.played_this_turn = false;
-    ip0.damage_counters = p0_damage_counters;
-    InPlayPokemon ip1; ip1.card = p1_active; ip1.played_this_turn = false;
-    gs.players[0].pokemon_slots[0] = ip0;
-    gs.players[1].pokemon_slots[0] = ip1;
-
-    return gs;
-}
-
-// Produce a seeded RNG that yields a known coin-flip sequence.
-// std::bernoulli_distribution(0.5) with mt19937 seed 0 produces:
-//   flip 1: tails, flip 2: heads, flip 3: heads, flip 4: tails, ...
-// We use specific seeds verified by the tests below.
 
 // ============================================================================
 // Requirement 1: Mechanic variant type
@@ -162,44 +70,11 @@ static void test_mechanic_equality()
     // Cross-type: different concrete types are never equal
     REQUIRE(!(bd1 == fnd_a));
     REQUIRE(!(sh_a == fnd_a));
-
-    std::cout << "  [PASS] test_mechanic_equality\n";
 }
 
 // ============================================================================
 // Requirement 5: apply_attack_damage dispatches on Mechanic
 // ============================================================================
-
-// Helper: find the first seed that produces exactly `target_heads` out of
-// `num_coins` flips with std::bernoulli_distribution(0.5).
-static std::mt19937::result_type find_seed_for_heads(int num_coins, int target_heads)
-{
-    for (std::mt19937::result_type seed = 0; seed < 100000; ++seed)
-    {
-        std::mt19937 rng(seed);
-        std::bernoulli_distribution coin(0.5);
-        int h = 0;
-        for (int i = 0; i < num_coins; ++i)
-            if (coin(rng)) ++h;
-        if (h == target_heads) return seed;
-    }
-    throw std::runtime_error("find_seed_for_heads: no seed found");
-}
-
-// Helper: find the first seed that produces exactly `target_heads` heads
-// before the first tails in a flip-until-tails sequence.
-static std::mt19937::result_type find_seed_for_flip_until_tails(int target_heads)
-{
-    for (std::mt19937::result_type seed = 0; seed < 100000; ++seed)
-    {
-        std::mt19937 rng(seed);
-        std::bernoulli_distribution coin(0.5);
-        int h = 0;
-        while (coin(rng)) ++h;
-        if (h == target_heads) return seed;
-    }
-    throw std::runtime_error("find_seed_for_flip_until_tails: no seed found");
-}
 
 // ---------------------------------------------------------------------------
 // R5-1: nullopt mechanic -> fixed damage only (no regression)
@@ -217,7 +92,6 @@ static void test_no_mechanic_uses_fixed_damage()
     apply_attack_damage(gs, 0, 0, rng);
 
     REQUIRE(gs.players[1].pokemon_slots[0]->damage_counters == 30);
-    std::cout << "  [PASS] test_no_mechanic_uses_fixed_damage\n";
 }
 
 // ---------------------------------------------------------------------------
@@ -237,7 +111,6 @@ static void test_flip1coin_damage_heads()
     apply_attack_damage(gs, 0, 0, rng);
 
     REQUIRE(gs.players[1].pokemon_slots[0]->damage_counters == 30);
-    std::cout << "  [PASS] test_flip1coin_damage_heads\n";
 }
 
 // ---------------------------------------------------------------------------
@@ -257,7 +130,6 @@ static void test_flip1coin_damage_tails()
     apply_attack_damage(gs, 0, 0, rng);
 
     REQUIRE(gs.players[1].pokemon_slots[0]->damage_counters == 0);
-    std::cout << "  [PASS] test_flip1coin_damage_tails\n";
 }
 
 // ---------------------------------------------------------------------------
@@ -279,7 +151,6 @@ static void test_flip2coin_extra_damage_2heads()
     apply_attack_damage(gs, 0, 0, rng);
 
     REQUIRE(gs.players[1].pokemon_slots[0]->damage_counters == 80);
-    std::cout << "  [PASS] test_flip2coin_extra_damage_2heads\n";
 }
 
 // ---------------------------------------------------------------------------
@@ -301,7 +172,6 @@ static void test_flip2coin_damage_no_fixed_2heads()
     apply_attack_damage(gs, 0, 0, rng);
 
     REQUIRE(gs.players[1].pokemon_slots[0]->damage_counters == 60);
-    std::cout << "  [PASS] test_flip2coin_damage_no_fixed_2heads\n";
 }
 
 // ---------------------------------------------------------------------------
@@ -324,7 +194,6 @@ static void test_self_heal_reduces_attacker_damage()
     REQUIRE(gs.players[1].pokemon_slots[0]->damage_counters == 40);
     // Attacker healed 30: 50 - 30 = 20
     REQUIRE(gs.players[0].pokemon_slots[0]->damage_counters == 20);
-    std::cout << "  [PASS] test_self_heal_reduces_attacker_damage\n";
 }
 
 // ---------------------------------------------------------------------------
@@ -344,7 +213,6 @@ static void test_self_heal_clamped_to_zero()
     apply_attack_damage(gs, 0, 0, rng);
 
     REQUIRE(gs.players[0].pokemon_slots[0]->damage_counters == 0);
-    std::cout << "  [PASS] test_self_heal_clamped_to_zero\n";
 }
 
 // ---------------------------------------------------------------------------
@@ -364,7 +232,6 @@ static void test_flip_until_tails_2heads()
     apply_attack_damage(gs, 0, 0, rng);
 
     REQUIRE(gs.players[1].pokemon_slots[0]->damage_counters == 40);
-    std::cout << "  [PASS] test_flip_until_tails_2heads\n";
 }
 
 // ---------------------------------------------------------------------------
@@ -384,7 +251,6 @@ static void test_flip_until_tails_0heads()
     apply_attack_damage(gs, 0, 0, rng);
 
     REQUIRE(gs.players[1].pokemon_slots[0]->damage_counters == 0);
-    std::cout << "  [PASS] test_flip_until_tails_0heads\n";
 }
 
 // ---------------------------------------------------------------------------
@@ -407,7 +273,6 @@ static void test_weakness_applied_after_mechanic()
 
     // 30 (heads) + 20 (weakness) = 50
     REQUIRE(gs.players[1].pokemon_slots[0]->damage_counters == 50);
-    std::cout << "  [PASS] test_weakness_applied_after_mechanic\n";
 }
 
 // ============================================================================

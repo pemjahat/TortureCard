@@ -40,6 +40,27 @@ static void print_card(const ptcgp_sim::Card& c)
 }
 
 // ---------------------------------------------------------------------------
+// Helper: load and validate a deck, exit on failure
+// ---------------------------------------------------------------------------
+
+static ptcgp_sim::Deck load_and_validate_deck(
+    const std::string& path,
+    const ptcgp_sim::Database& db,
+    const std::string& label)
+{
+    ptcgp_sim::Deck deck = ptcgp_sim::Deck::load_from_json(path, db);
+    std::vector<std::string> errors;
+    if (!deck.validate(errors))
+    {
+        std::cerr << label << " validation FAILED:\n";
+        for (const auto& e : errors)
+            std::cerr << "  [ERROR] " << e << "\n";
+        std::exit(1);
+    }
+    return deck;
+}
+
+// ---------------------------------------------------------------------------
 // Subcommand: util
 // ---------------------------------------------------------------------------
 
@@ -163,26 +184,8 @@ static int cmd_util(int argc, char* argv[])
         ptcgp_sim::Database db = ptcgp_sim::Database::load();
         std::cout << "Loaded " << db.size() << " cards.\n\n";
 
-        ptcgp_sim::Deck deck0 = ptcgp_sim::Deck::load_from_json(deck1_path, db);
-        ptcgp_sim::Deck deck1 = ptcgp_sim::Deck::load_from_json(deck2_path, db);
-
-        // Validate both decks before proceeding
-        std::vector<std::string> errors0, errors1;
-        bool valid0 = deck0.validate(errors0);
-        bool valid1 = deck1.validate(errors1);
-
-        if (!valid0)
-        {
-            std::cerr << "Deck 1 validation FAILED:\n";
-            for (const auto& e : errors0) std::cerr << "  [ERROR] " << e << "\n";
-            return 1;
-        }
-        if (!valid1)
-        {
-            std::cerr << "Deck 2 validation FAILED:\n";
-            for (const auto& e : errors1) std::cerr << "  [ERROR] " << e << "\n";
-            return 1;
-        }
+        ptcgp_sim::Deck deck0 = load_and_validate_deck(deck1_path, db, "Deck 1");
+        ptcgp_sim::Deck deck1 = load_and_validate_deck(deck2_path, db, "Deck 2");
 
         // Initialize game state and deal valid starting hands
         ptcgp_sim::GameState gs = ptcgp_sim::GameState::make(deck0, deck1);
@@ -230,22 +233,8 @@ static int cmd_util(int argc, char* argv[])
         ptcgp_sim::Database db = ptcgp_sim::Database::load();
         std::cout << "Loaded " << db.size() << " cards.\n\n";
 
-        ptcgp_sim::Deck deck0 = ptcgp_sim::Deck::load_from_json(deck1_path, db);
-        ptcgp_sim::Deck deck1 = ptcgp_sim::Deck::load_from_json(deck2_path, db);
-
-        std::vector<std::string> errors0, errors1;
-        if (!deck0.validate(errors0))
-        {
-            std::cerr << "Deck 1 validation FAILED:\n";
-            for (const auto& e : errors0) std::cerr << "  [ERROR] " << e << "\n";
-            return 1;
-        }
-        if (!deck1.validate(errors1))
-        {
-            std::cerr << "Deck 2 validation FAILED:\n";
-            for (const auto& e : errors1) std::cerr << "  [ERROR] " << e << "\n";
-            return 1;
-        }
+        ptcgp_sim::Deck deck0 = load_and_validate_deck(deck1_path, db, "Deck 1");
+        ptcgp_sim::Deck deck1 = load_and_validate_deck(deck2_path, db, "Deck 2");
 
         // Build a fresh game state in Setup phase and deal valid starting hands
         ptcgp_sim::GameState gs = ptcgp_sim::GameState::make(deck0, deck1);
@@ -536,26 +525,8 @@ int main(int argc, char* argv[])
         ptcgp_sim::Database db = ptcgp_sim::Database::load();
         std::cout << "Loaded " << db.size() << " cards.\n\n";
 
-        ptcgp_sim::Deck deck0 = ptcgp_sim::Deck::load_from_json(deck1_path, db);
-        ptcgp_sim::Deck deck1 = ptcgp_sim::Deck::load_from_json(deck2_path, db);
-
-        // Validate both decks
-        std::vector<std::string> errors0, errors1;
-        bool valid0 = deck0.validate(errors0);
-        bool valid1 = deck1.validate(errors1);
-
-        if (!valid0)
-        {
-            std::cerr << "Deck 1 validation FAILED:\n";
-            for (const auto& e : errors0) std::cerr << "  [ERROR] " << e << "\n";
-            return 1;
-        }
-        if (!valid1)
-        {
-            std::cerr << "Deck 2 validation FAILED:\n";
-            for (const auto& e : errors1) std::cerr << "  [ERROR] " << e << "\n";
-            return 1;
-        }
+        ptcgp_sim::Deck deck0 = load_and_validate_deck(deck1_path, db, "Deck 1");
+        ptcgp_sim::Deck deck1 = load_and_validate_deck(deck2_path, db, "Deck 2");
 
         std::cout << "Deck 1 energy: ";
         for (std::size_t i = 0; i < deck0.energy_types.size(); ++i)

@@ -3,108 +3,13 @@
 //
 // Build target: ptcgp_test_ability_effects (added in CMakeLists.txt)
 
+#include "test_helpers.h"
+
 #include "ptcgp_sim/attack_mechanic.h"
 #include "ptcgp_sim/attack_mechanic_dictionary.h"
 #include "ptcgp_sim/ability_mechanic.h"
 #include "ptcgp_sim/ability_mechanic_dictionary.h"
-#include "ptcgp_sim/action.h"
-#include "ptcgp_sim/card.h"
-#include "ptcgp_sim/deck.h"
 #include "ptcgp_sim/effects.h"
-#include "ptcgp_sim/game_state.h"
-
-#include <iostream>
-#include <random>
-#include <stdexcept>
-#include <string>
-#include <vector>
-
-// ---------------------------------------------------------------------------
-// Test infrastructure
-// ---------------------------------------------------------------------------
-
-#define REQUIRE(expr)                                                          \
-    do {                                                                       \
-        if (!(expr)) {                                                         \
-            throw std::runtime_error(                                          \
-                std::string(__FILE__) + ":" + std::to_string(__LINE__) +       \
-                " — REQUIRE failed: " #expr);                                  \
-        }                                                                      \
-    } while (false)
-
-static int g_failures = 0;
-
-#define RUN_TEST(func)                                                         \
-    do {                                                                       \
-        try {                                                                  \
-            func();                                                            \
-            std::cout << "  [PASS] " #func "\n";                               \
-        } catch (const std::exception& e) {                                    \
-            std::cerr << "  [FAIL] " #func "\n"                                \
-                      << "         " << e.what() << "\n";                      \
-            ++g_failures;                                                      \
-        }                                                                      \
-    } while (false)
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-static ptcgp_sim::Card make_pokemon(
-    const std::string& expansion, int number,
-    const std::string& name,
-    int hp = 100,
-    ptcgp_sim::EnergyType energy_type = ptcgp_sim::EnergyType::Colorless,
-    const std::vector<ptcgp_sim::Attack>& attacks = {},
-    std::optional<ptcgp_sim::EnergyType> weakness = std::nullopt,
-    std::optional<ptcgp_sim::Ability> ability = std::nullopt)
-{
-    ptcgp_sim::Card c;
-    c.id          = {expansion, number};
-    c.name        = name;
-    c.type        = ptcgp_sim::CardType::Pokemon;
-    c.hp          = hp;
-    c.energy_type = energy_type;
-    c.stage       = 0;
-    c.attacks     = attacks;
-    c.weakness    = weakness;
-    c.ability     = ability;
-    return c;
-}
-
-static ptcgp_sim::Deck make_deck(const ptcgp_sim::Card& filler)
-{
-    ptcgp_sim::Deck d;
-    d.energy_types = {ptcgp_sim::EnergyType::Colorless};
-    d.cards        = std::vector<ptcgp_sim::Card>(20, filler);
-    d.entries.push_back({filler.id, 20});
-    return d;
-}
-
-static ptcgp_sim::GameState make_game(
-    const ptcgp_sim::Card& p0_active,
-    const ptcgp_sim::Card& p1_active,
-    int p0_damage_counters = 0,
-    int p1_damage_counters = 0)
-{
-    using namespace ptcgp_sim;
-    Card dummy = make_pokemon("XX", 99, "Dummy", 100);
-    Deck deck  = make_deck(dummy);
-
-    GameState gs = GameState::make(deck, deck);
-    gs.turn_phase     = TurnPhase::Action;
-    gs.turn_number    = 2;
-    gs.current_player = 0;
-
-    InPlayPokemon ip0; ip0.card = p0_active; ip0.played_this_turn = false;
-    ip0.damage_counters = p0_damage_counters;
-    InPlayPokemon ip1; ip1.card = p1_active; ip1.played_this_turn = false;
-    ip1.damage_counters = p1_damage_counters;
-    gs.players[0].pokemon_slots[0] = ip0;
-    gs.players[1].pokemon_slots[0] = ip1;
-
-    return gs;
-}
 
 // ============================================================================
 // Requirement 1: attack_mechanic_dictionary lookup

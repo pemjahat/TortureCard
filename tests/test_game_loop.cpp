@@ -9,129 +9,13 @@
 //
 // Build target: ptcgp_test_game_loop (registered in CMakeLists.txt)
 
+#include "test_helpers.h"
+
 #include "ptcgp_sim/attach_attack_player.h"
 #include "ptcgp_sim/game_loop.h"
-#include "ptcgp_sim/game_state.h"
 #include "ptcgp_sim/move_generation.h"
 #include "ptcgp_sim/simulator.h"
 #include "ptcgp_sim/effects.h"
-
-#include <algorithm>
-#include <iostream>
-#include <random>
-#include <stdexcept>
-#include <string>
-#include <vector>
-
-// ---------------------------------------------------------------------------
-// Test infrastructure
-// ---------------------------------------------------------------------------
-
-#define REQUIRE(expr)                                                          \
-    do {                                                                       \
-        if (!(expr)) {                                                         \
-            throw std::runtime_error(                                          \
-                std::string(__FILE__) + ":" + std::to_string(__LINE__) +       \
-                " — REQUIRE failed: " #expr);                                  \
-        }                                                                      \
-    } while (false)
-
-static int g_failures = 0;
-
-#define RUN_TEST(func)                                                         \
-    do {                                                                       \
-        try {                                                                  \
-            func();                                                            \
-            std::cout << "  [PASS] " #func "\n";                               \
-        } catch (const std::exception& e) {                                    \
-            std::cerr << "  [FAIL] " #func "\n"                                \
-                      << "         " << e.what() << "\n";                      \
-            ++g_failures;                                                      \
-        }                                                                      \
-    } while (false)
-
-// ---------------------------------------------------------------------------
-// Shared helpers
-// ---------------------------------------------------------------------------
-
-static ptcgp_sim::Card make_pokemon(
-    const std::string& expansion, int number,
-    const std::string& name,
-    int hp = 60,
-    ptcgp_sim::EnergyType energy_type = ptcgp_sim::EnergyType::Colorless,
-    int stage = 0,
-    const std::vector<ptcgp_sim::Attack>& attacks = {},
-    std::optional<ptcgp_sim::EnergyType> weakness = std::nullopt)
-{
-    ptcgp_sim::Card c;
-    c.id          = {expansion, number};
-    c.name        = name;
-    c.type        = ptcgp_sim::CardType::Pokemon;
-    c.hp          = hp;
-    c.energy_type = energy_type;
-    c.stage       = stage;
-    c.attacks     = attacks;
-    c.weakness    = weakness;
-    return c;
-}
-
-static ptcgp_sim::Attack make_attack(const std::string& name, int damage,
-                                      std::vector<ptcgp_sim::EnergyType> cost = {})
-{
-    ptcgp_sim::Attack a;
-    a.name            = name;
-    a.damage          = damage;
-    a.energy_required = std::move(cost);
-    return a;
-}
-
-// Build a Deck from a flat vector of cards (no database needed).
-static ptcgp_sim::Deck make_deck(const std::vector<ptcgp_sim::Card>& cards,
-                                  ptcgp_sim::EnergyType energy = ptcgp_sim::EnergyType::Fire)
-{
-    ptcgp_sim::Deck d;
-    d.energy_types = {energy};
-    d.cards        = cards;
-    for (const auto& c : cards)
-    {
-        auto it = std::find_if(d.entries.begin(), d.entries.end(),
-                               [&](const ptcgp_sim::DeckEntry& e){ return e.id == c.id; });
-        if (it != d.entries.end())
-            it->count++;
-        else
-            d.entries.push_back({c.id, 1});
-    }
-    return d;
-}
-
-// Build a minimal 20-card deck filled with copies of one card.
-static ptcgp_sim::Deck make_uniform_deck(const ptcgp_sim::Card& card,
-                                          ptcgp_sim::EnergyType energy = ptcgp_sim::EnergyType::Fire)
-{
-    return make_deck(std::vector<ptcgp_sim::Card>(20, card), energy);
-}
-
-// Build a GameState with both actives pre-placed (bypasses setup phase).
-static ptcgp_sim::GameState make_mid_game(
-    const ptcgp_sim::Card& p0_active,
-    const ptcgp_sim::Card& p1_active,
-    ptcgp_sim::EnergyType energy = ptcgp_sim::EnergyType::Fire)
-{
-    using namespace ptcgp_sim;
-    Card dummy = make_pokemon("XX", 99, "Dummy", 60);
-    Deck deck  = make_uniform_deck(dummy, energy);
-
-    GameState gs = GameState::make(deck, deck);
-    gs.turn_phase     = TurnPhase::Action;
-    gs.turn_number    = 2;
-    gs.current_player = 0;
-
-    InPlayPokemon ip0; ip0.card = p0_active; ip0.played_this_turn = false;
-    InPlayPokemon ip1; ip1.card = p1_active; ip1.played_this_turn = false;
-    gs.players[0].pokemon_slots[0] = ip0;
-    gs.players[1].pokemon_slots[0] = ip1;
-    return gs;
-}
 
 // ============================================================================
 // Requirement 1: AttachAttackPlayer Decision Logic
@@ -146,8 +30,7 @@ static void test_player_prefers_attach_when_no_energy()
     Card charmander = make_pokemon("A1", 1, "Charmander", 60, EnergyType::Fire, 0, {ember});
     Card squirtle   = make_pokemon("A1", 2, "Squirtle",   60);
 
-    GameState gs = make_mid_game(charmander, squirtle, EnergyType::Fire);
-    gs.current_energy = EnergyType::Fire; // energy available but not yet attached
+    GameState gs = make_game(charmander, squirtle, 0, 0, EnergyType::Fire);
 
     std::vector<Action> moves = generate_legal_moves(gs, 0);
     // Verify AttachEnergy to slot 0 is in the list
@@ -170,7 +53,7 @@ static void test_player_prefers_attack_when_energy_met()
     Card charmander = make_pokemon("A1", 1, "Charmander", 60, EnergyType::Fire, 0, {ember});
     Card squirtle   = make_pokemon("A1", 2, "Squirtle",   60);
 
-    GameState gs = make_mid_game(charmander, squirtle, EnergyType::Fire);
+    GameState gs = make_game(charmander, squirtle, 0, 0, EnergyType::Fire);
     // Pre-attach enough energy to satisfy Ember's cost
     gs.players[0].pokemon_slots[0]->attached_energy.push_back(EnergyType::Fire);
     gs.current_energy = EnergyType::Fire; // extra energy still available
@@ -194,7 +77,7 @@ static void test_player_fallback_to_first_move()
     std::vector<Action> moves = { Action::pass() };
 
     Card dummy = make_pokemon("XX", 1, "Dummy", 60);
-    GameState gs = make_mid_game(dummy, dummy);
+    GameState gs = make_game(dummy, dummy);
 
     AttachAttackPlayer player;
     Action chosen = player.decide(gs, moves);
@@ -240,7 +123,7 @@ static void test_player_picks_first_attack_index()
     Card attacker = make_pokemon("A1", 1, "Attacker", 100, EnergyType::Colorless, 0, {atk0, atk1});
     Card defender = make_pokemon("A1", 2, "Defender", 60);
 
-    GameState gs = make_mid_game(attacker, defender, EnergyType::Colorless);
+    GameState gs = make_game(attacker, defender, 0, 0, EnergyType::Colorless);
     // Attach enough for atk0 (1 Colorless)
     gs.players[0].pokemon_slots[0]->attached_energy.push_back(EnergyType::Colorless);
     gs.current_energy = EnergyType::Colorless;
@@ -413,7 +296,7 @@ static void test_pass_skips_attack()
     using namespace ptcgp_sim;
 
     Card basic = make_pokemon("A1", 1, "Basic", 60);
-    GameState gs = make_mid_game(basic, basic, EnergyType::Fire);
+    GameState gs = make_game(basic, basic, 0, 0, EnergyType::Fire);
     gs.turn_number = 1; // turn 1: no energy, player must pass
 
     // No energy available, no hand cards → only Pass
@@ -438,7 +321,7 @@ static void test_attack_sets_attacked_flag()
     Card attacker  = make_pokemon("A1", 1, "Attacker", 60, EnergyType::Colorless, 0, {scratch});
     Card defender  = make_pokemon("A1", 2, "Defender", 60);
 
-    GameState gs = make_mid_game(attacker, defender, EnergyType::Colorless);
+    GameState gs = make_game(attacker, defender, 0, 0, EnergyType::Colorless);
     gs.players[0].pokemon_slots[0]->attached_energy.push_back(EnergyType::Colorless);
 
     REQUIRE(gs.attacked_this_turn == false);
@@ -455,7 +338,7 @@ static void test_cleanup_switches_player()
     using namespace ptcgp_sim;
 
     Card basic = make_pokemon("A1", 1, "Basic", 60);
-    GameState gs = make_mid_game(basic, basic);
+    GameState gs = make_game(basic, basic);
     gs.turn_phase     = TurnPhase::Cleanup;
     gs.current_player = 0;
 
@@ -470,7 +353,7 @@ static void test_cleanup_increments_turn_number()
     using namespace ptcgp_sim;
 
     Card basic = make_pokemon("A1", 1, "Basic", 60);
-    GameState gs = make_mid_game(basic, basic);
+    GameState gs = make_game(basic, basic);
     gs.turn_phase  = TurnPhase::Cleanup;
     gs.turn_number = 3;
 
@@ -615,7 +498,7 @@ static void test_attach_energy_clears_current_energy()
     using namespace ptcgp_sim;
 
     Card basic = make_pokemon("A1", 1, "Basic", 60);
-    GameState gs = make_mid_game(basic, basic, EnergyType::Fire);
+    GameState gs = make_game(basic, basic, 0, 0, EnergyType::Fire);
     gs.current_energy = EnergyType::Fire;
 
     REQUIRE(!gs.energy_attached_this_turn);
@@ -633,7 +516,7 @@ static void test_reset_turn_flags_clears_energy()
     using namespace ptcgp_sim;
 
     Card basic = make_pokemon("A1", 1, "Basic", 60);
-    GameState gs = make_mid_game(basic, basic, EnergyType::Fire);
+    GameState gs = make_game(basic, basic, 0, 0, EnergyType::Fire);
     gs.current_energy             = EnergyType::Fire;
     gs.energy_attached_this_turn  = true;
     gs.supporter_played_this_turn = true;

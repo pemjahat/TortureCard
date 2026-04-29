@@ -2,80 +2,9 @@
 // Uses try/catch-based testing — no external framework required.
 // Build target: ptcgp_test (added in CMakeLists.txt)
 
-#include "ptcgp_sim/action.h"
-#include "ptcgp_sim/game_state.h"
+#include "test_helpers.h"
+
 #include "ptcgp_sim/move_generation.h"
-
-#include <algorithm>
-#include <iostream>
-#include <stdexcept>
-#include <string>
-
-// ---------------------------------------------------------------------------
-// Test infrastructure
-// ---------------------------------------------------------------------------
-
-// Macro that throws with file, line, and expression on failure.
-#define REQUIRE(expr)                                                         \
-    do {                                                                      \
-        if (!(expr)) {                                                        \
-            throw std::runtime_error(                                         \
-                std::string(__FILE__) + ":" + std::to_string(__LINE__) +      \
-                " — REQUIRE failed: " #expr);                                 \
-        }                                                                     \
-    } while (false)
-
-static int g_failures = 0;
-
-#define RUN_TEST(func)                                                        \
-    do {                                                                      \
-        try {                                                                 \
-            func();                                                           \
-        } catch (const std::exception& e) {                                   \
-            std::cerr << "  [FAIL] " #func "\n"                               \
-                      << "         " << e.what() << "\n";                     \
-            ++g_failures;                                                     \
-        }                                                                     \
-    } while (false)
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-static ptcgp_sim::Card make_pokemon(const std::string& expansion, int number,
-                                    const std::string& name, int stage = 0,
-                                    const std::vector<ptcgp_sim::Attack>& attacks = {})
-{
-    ptcgp_sim::Card c;
-    c.id        = {expansion, number};
-    c.name      = name;
-    c.type      = ptcgp_sim::CardType::Pokemon;
-    c.hp        = 60;
-    c.stage     = stage;
-    c.attacks   = attacks;
-    return c;
-}
-
-static ptcgp_sim::Card make_trainer(const std::string& expansion, int number,
-                                    const std::string& name,
-                                    ptcgp_sim::TrainerType tt)
-{
-    ptcgp_sim::Card c;
-    c.id           = {expansion, number};
-    c.name         = name;
-    c.type         = ptcgp_sim::CardType::Trainer;
-    c.trainer_type = tt;
-    return c;
-}
-
-static ptcgp_sim::InPlayPokemon make_in_play(const ptcgp_sim::Card& card,
-                                              bool played_this_turn = false)
-{
-    ptcgp_sim::InPlayPokemon ip;
-    ip.card             = card;
-    ip.played_this_turn = played_this_turn;
-    return ip;
-}
 
 static bool has_action_type(const std::vector<ptcgp_sim::Action>& moves,
                              ptcgp_sim::ActionType t)
@@ -90,6 +19,15 @@ static int count_action_type(const std::vector<ptcgp_sim::Action>& moves,
     return static_cast<int>(
         std::count_if(moves.begin(), moves.end(),
                       [t](const ptcgp_sim::Action& a){ return a.type == t; }));
+}
+
+static ptcgp_sim::InPlayPokemon make_in_play(const ptcgp_sim::Card& card,
+                                              bool played_this_turn = false)
+{
+    ptcgp_sim::InPlayPokemon ip;
+    ip.card             = card;
+    ip.played_this_turn = played_this_turn;
+    return ip;
 }
 
 // ---------------------------------------------------------------------------

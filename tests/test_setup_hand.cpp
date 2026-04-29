@@ -3,87 +3,11 @@
 // Uses try/catch-based testing — no external framework required.
 // Build target: ptcgp_test_setup_hand (added in CMakeLists.txt)
 
-#include "ptcgp_sim/card.h"
-#include "ptcgp_sim/deck.h"
-#include "ptcgp_sim/game_state.h"
-
-#include <algorithm>
-#include <iostream>
-#include <random>
-#include <stdexcept>
-#include <string>
-#include <vector>
+#include "test_helpers.h"
 
 // ---------------------------------------------------------------------------
-// Test infrastructure
+// Local helpers (setup-hand-test-specific)
 // ---------------------------------------------------------------------------
-
-#define REQUIRE(expr)                                                         \
-    do {                                                                      \
-        if (!(expr)) {                                                        \
-            throw std::runtime_error(                                         \
-                std::string(__FILE__) + ":" + std::to_string(__LINE__) +      \
-                " — REQUIRE failed: " #expr);                                 \
-        }                                                                     \
-    } while (false)
-
-static int g_failures = 0;
-
-#define RUN_TEST(func)                                                        \
-    do {                                                                      \
-        try {                                                                 \
-            func();                                                           \
-        } catch (const std::exception& e) {                                   \
-            std::cerr << "  [FAIL] " #func "\n"                               \
-                      << "         " << e.what() << "\n";                     \
-            ++g_failures;                                                     \
-        }                                                                     \
-    } while (false)
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-static ptcgp_sim::Card make_pokemon(const std::string& expansion, int number,
-                                    const std::string& name, int stage = 0)
-{
-    ptcgp_sim::Card c;
-    c.id    = {expansion, number};
-    c.name  = name;
-    c.type  = ptcgp_sim::CardType::Pokemon;
-    c.hp    = 60;
-    c.stage = stage;
-    return c;
-}
-
-static ptcgp_sim::Card make_trainer(const std::string& expansion, int number,
-                                    const std::string& name)
-{
-    ptcgp_sim::Card c;
-    c.id           = {expansion, number};
-    c.name         = name;
-    c.type         = ptcgp_sim::CardType::Trainer;
-    c.trainer_type = ptcgp_sim::TrainerType::Item;
-    return c;
-}
-
-// Build a 20-card Deck from a vector of cards (no database needed).
-static ptcgp_sim::Deck make_deck(const std::vector<ptcgp_sim::Card>& cards)
-{
-    ptcgp_sim::Deck d;
-    d.energy_types = {ptcgp_sim::EnergyType::Fire};
-    d.cards        = cards;
-    for (const auto& c : cards)
-    {
-        auto it = std::find_if(d.entries.begin(), d.entries.end(),
-                               [&](const ptcgp_sim::DeckEntry& e){ return e.id == c.id; });
-        if (it != d.entries.end())
-            it->count++;
-        else
-            d.entries.push_back({c.id, 1});
-    }
-    return d;
-}
 
 static bool has_stage0(const std::vector<ptcgp_sim::Card>& hand)
 {

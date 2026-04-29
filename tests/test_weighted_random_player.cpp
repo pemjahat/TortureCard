@@ -2,40 +2,9 @@
 //
 // Build target: ptcgp_test_weighted_random_player (registered in CMakeLists.txt)
 
+#include "test_helpers.h"
+
 #include "ptcgp_sim/weighted_random_player.h"
-#include "ptcgp_sim/game_state.h"
-
-#include <iostream>
-#include <stdexcept>
-#include <string>
-#include <vector>
-
-// ---------------------------------------------------------------------------
-// Test infrastructure
-// ---------------------------------------------------------------------------
-
-#define REQUIRE(expr)                                                          \
-    do {                                                                       \
-        if (!(expr)) {                                                         \
-            throw std::runtime_error(                                          \
-                std::string(__FILE__) + ":" + std::to_string(__LINE__) +       \
-                " — REQUIRE failed: " #expr);                                  \
-        }                                                                      \
-    } while (false)
-
-static int g_failures = 0;
-
-#define RUN_TEST(func)                                                         \
-    do {                                                                       \
-        try {                                                                  \
-            func();                                                            \
-            std::cout << "  [PASS] " #func "\n";                               \
-        } catch (const std::exception& e) {                                    \
-            std::cerr << "  [FAIL] " #func "\n"                                \
-                      << "         " << e.what() << "\n";                      \
-            ++g_failures;                                                      \
-        }                                                                      \
-    } while (false)
 
 // ---------------------------------------------------------------------------
 // Tests

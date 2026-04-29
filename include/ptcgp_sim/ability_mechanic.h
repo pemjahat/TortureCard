@@ -134,8 +134,9 @@ struct HealOneYourPokemon : AbilityMechanic
     AbilityTiming timing() const override { return AbilityTiming::Activate; }
 
     // Heals the Pokemon in slot_idx (the ability user's slot).
-    // In a full engine this would present a choice; for first-pass we heal
-    // the ability user's own slot as a deterministic simplification.
+    // TODO: present target-selection choice — in a full engine this would let
+    // the player pick any of their in-play Pokemon to heal.
+    // For now, heals the ability user's own slot as a deterministic simplification.
     void apply_activate(GameState& gs, int player, int slot_idx,
                         std::mt19937& rng) const override;
 

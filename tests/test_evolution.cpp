@@ -3,44 +3,13 @@
 //         cards_behind chain, and knockout discard of full evolution chain.
 // Build target: ptcgp_test_evolution (added in CMakeLists.txt)
 
-#include "ptcgp_sim/action.h"
+#include "test_helpers.h"
+
 #include "ptcgp_sim/effects.h"
-#include "ptcgp_sim/game_state.h"
 #include "ptcgp_sim/move_generation.h"
 
-#include <algorithm>
-#include <iostream>
-#include <stdexcept>
-#include <string>
-
 // ---------------------------------------------------------------------------
-// Test infrastructure (same pattern as other test files)
-// ---------------------------------------------------------------------------
-
-#define REQUIRE(expr)                                                         \
-    do {                                                                      \
-        if (!(expr)) {                                                        \
-            throw std::runtime_error(                                         \
-                std::string(__FILE__) + ":" + std::to_string(__LINE__) +      \
-                " — REQUIRE failed: " #expr);                                 \
-        }                                                                     \
-    } while (false)
-
-static int g_failures = 0;
-
-#define RUN_TEST(func)                                                        \
-    do {                                                                      \
-        try {                                                                 \
-            func();                                                           \
-        } catch (const std::exception& e) {                                   \
-            std::cerr << "  [FAIL] " #func "\n"                               \
-                      << "         " << e.what() << "\n";                     \
-            ++g_failures;                                                     \
-        }                                                                     \
-    } while (false)
-
-// ---------------------------------------------------------------------------
-// Helpers
+// Local helpers (evolution-test-specific)
 // ---------------------------------------------------------------------------
 
 static ptcgp_sim::Card make_basic(const std::string& name, int number = 1)
