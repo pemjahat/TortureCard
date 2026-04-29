@@ -26,6 +26,21 @@
 #  define PTCGP_PAIR_MECHANIC_PATH "database/pair_mechanic.json"
 #endif
 
+// supporter_mechanics.json  — debug dump: unique Supporter effect texts
+#ifndef PTCGP_SUPPORTER_MECHANICS_PATH
+#  define PTCGP_SUPPORTER_MECHANICS_PATH "database/supporter_mechanics.json"
+#endif
+
+// item_mechanics.json       — debug dump: unique Item effect texts
+#ifndef PTCGP_ITEM_MECHANICS_PATH
+#  define PTCGP_ITEM_MECHANICS_PATH "database/item_mechanics.json"
+#endif
+
+// tool_mechanics.json       — debug dump: unique Tool effect texts
+#ifndef PTCGP_TOOL_MECHANICS_PATH
+#  define PTCGP_TOOL_MECHANICS_PATH "database/tool_mechanics.json"
+#endif
+
 namespace ptcgp_sim 
 {
 
@@ -102,6 +117,45 @@ public:
         const std::string& ability_mechanic_path = PTCGP_ABILITY_MECHANIC_DICT_PATH,
         const std::string& pair_mechanic_path    = PTCGP_PAIR_MECHANIC_PATH);
 
+    // ---------------------------------------------------------------------------
+    // dump_supporter_mechanics  (debug only)
+    //
+    // Scans database.json for all Supporter trainer cards, deduplicates their
+    // effect texts, and writes supporter_mechanics.json.
+    // Format: array of { "effect": "...", "cards": ["A1 219", ...] }
+    // Cards with no effect text are listed in a top-level "no_effect" array.
+    // Returns false if the output file could not be written.
+    // ---------------------------------------------------------------------------
+    static bool dump_supporter_mechanics(
+        const std::string& db_path        = PTCGP_DATABASE_PATH,
+        const std::string& output_path    = PTCGP_SUPPORTER_MECHANICS_PATH);
+
+    // ---------------------------------------------------------------------------
+    // dump_item_mechanics  (debug only)
+    //
+    // Scans database.json for all Item trainer cards, deduplicates their
+    // effect texts, and writes item_mechanics.json.
+    // Format: array of { "effect": "...", "cards": ["A1 219", ...] }
+    // Cards with no effect text are listed in a top-level "no_effect" array.
+    // Returns false if the output file could not be written.
+    // ---------------------------------------------------------------------------
+    static bool dump_item_mechanics(
+        const std::string& db_path        = PTCGP_DATABASE_PATH,
+        const std::string& output_path    = PTCGP_ITEM_MECHANICS_PATH);
+
+    // ---------------------------------------------------------------------------
+    // dump_tool_mechanics  (debug only)
+    //
+    // Scans database.json for all Tool trainer cards, deduplicates their
+    // effect texts, and writes tool_mechanics.json.
+    // Format: array of { "effect": "...", "cards": ["A1 219", ...] }
+    // Cards with no effect text are listed in a top-level "no_effect" array.
+    // Returns false if the output file could not be written.
+    // ---------------------------------------------------------------------------
+    static bool dump_tool_mechanics(
+        const std::string& db_path        = PTCGP_DATABASE_PATH,
+        const std::string& output_path    = PTCGP_TOOL_MECHANICS_PATH);
+
 private:
     std::vector<Card> Cards;
 
@@ -111,6 +165,13 @@ private:
     // Internal: apply AttackMechanic resolution to all loaded cards using the
     // pair_mechanic.json file (if available) or attack_mechanic_dictionary().
     void resolve_mechanics(const std::string& pair_mechanic_path);
+
+    // Internal: shared implementation for dump_supporter_mechanics / dump_item_mechanics / dump_tool_mechanics.
+    static bool dump_trainer_mechanics_impl(
+        const std::string& db_path,
+        const std::string& output_path,
+        TrainerType target_type,
+        const char* label);
 };
 
 } // namespace ptcgp_sim

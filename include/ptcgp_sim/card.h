@@ -155,6 +155,7 @@ struct Card
 
     // --- Trainer fields ---
     TrainerType               trainer_type{TrainerType::Item}; // meaningful only when type == Trainer
+    std::optional<std::string> trainer_effect{};               // raw effect text (debug/dump only)
 
     // --- Classification helpers ---
 

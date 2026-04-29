@@ -359,6 +359,26 @@ Database Database::parse_json(const std::string& path)
                     }
                     else { ++i; }
                 }
+                else if (jsmn_tok_eq(js, key, "trainer_card_type"))
+                {
+                    // Map database trainer_card_type string to TrainerType enum
+                    const std::string ttype = jsmn_tok_str(js, val);
+                    if      (ttype == "Item")      card.trainer_type = TrainerType::Item;
+                    else if (ttype == "Tool")      card.trainer_type = TrainerType::Tool;
+                    else if (ttype == "Supporter") card.trainer_type = TrainerType::Supporter;
+                    else if (ttype == "Stadium")   card.trainer_type = TrainerType::Stadium;
+                    // "Fossil" and any unknown types default to Item
+                    ++i;
+                }
+                else if (jsmn_tok_eq(js, key, "effect") && card.type == CardType::Trainer)
+                {
+                    // Trainer card effect text (raw string, stored for debug/dump only)
+                    if (val.type == JSMN_PRIMITIVE && js[val.start] == 'n')
+                        card.trainer_effect = std::nullopt;
+                    else
+                        card.trainer_effect = jsmn_tok_str(js, val);
+                    ++i;
+                }
                 else if (jsmn_tok_eq(js, key, "ability"))
                 {
                     // ability is an object: {"name": "...", "effect": "..."}
@@ -952,6 +972,137 @@ const Card* Database::find_by_id(const CardId& id) const
     for (const Card& c : Cards)
         if (c.id == id) return &c;
     return nullptr;
+}
+
+// ---------------------------------------------------------------------------
+// Database::dump_trainer_mechanics_impl  (internal helper)
+// ---------------------------------------------------------------------------
+
+bool Database::dump_trainer_mechanics_impl(
+    const std::string& db_path,
+    const std::string& output_path,
+    TrainerType target_type,
+    const char* label)
+{
+    std::cout << "[info] Dumping " << label << " mechanics from database.json...\n";
+
+    Database db = Database::parse_json(db_path);
+
+    // effect text -> list of card id strings
+    std::vector<std::pair<std::string, std::vector<std::string>>> effect_groups;
+    // Preserve insertion order; use a helper map for fast lookup
+    std::unordered_map<std::string, std::size_t> effect_index;
+
+    // Cards with no effect text
+    struct NoEffectEntry { std::string id; std::string name; };
+    std::vector<NoEffectEntry> no_effect_cards;
+
+    for (const auto& card : db.all_cards())
+    {
+        if (card.type != CardType::Trainer) continue;
+        if (card.trainer_type != target_type) continue;
+
+        const std::string card_id = card.id.to_string();
+
+        if (!card.trainer_effect.has_value())
+        {
+            no_effect_cards.push_back({card_id, card.name});
+            continue;
+        }
+
+        const std::string& eff = *card.trainer_effect;
+        auto it = effect_index.find(eff);
+        if (it == effect_index.end())
+        {
+            effect_index[eff] = effect_groups.size();
+            effect_groups.push_back({eff, {card_id}});
+        }
+        else
+        {
+            effect_groups[it->second].second.push_back(card_id);
+        }
+    }
+
+    std::ofstream out(output_path);
+    if (!out.is_open())
+    {
+        std::cerr << "[error] Could not write " << label << " mechanics: " << output_path << "\n";
+        return false;
+    }
+
+    out << "{\n";
+
+    // "effects" array
+    out << "  \"effects\": [\n";
+    for (std::size_t gi = 0; gi < effect_groups.size(); ++gi)
+    {
+        if (gi > 0) out << ",\n";
+        const auto& grp = effect_groups[gi];
+        out << "    {\n";
+        out << "      \"effect\": \"" << json_escape(grp.first) << "\",\n";
+        out << "      \"cards\": [";
+        for (std::size_t ci = 0; ci < grp.second.size(); ++ci)
+        {
+            if (ci > 0) out << ", ";
+            out << "\"" << json_escape(grp.second[ci]) << "\"";
+        }
+        out << "]\n";
+        out << "    }";
+    }
+    out << "\n  ],\n";
+
+    // "no_effect" array
+    out << "  \"no_effect\": [\n";
+    for (std::size_t ni = 0; ni < no_effect_cards.size(); ++ni)
+    {
+        if (ni > 0) out << ",\n";
+        out << "    {\"id\": \"" << json_escape(no_effect_cards[ni].id)
+            << "\", \"name\": \"" << json_escape(no_effect_cards[ni].name) << "\"}";
+    }
+    out << "\n  ]\n";
+
+    out << "}\n";
+    out.close();
+
+    std::cout << "[info] " << label << " mechanics: "
+              << effect_groups.size() << " unique effect(s), "
+              << no_effect_cards.size() << " card(s) with no effect text\n";
+    std::cout << "[info] Output: " << output_path << "\n";
+
+    return true;
+}
+
+// ---------------------------------------------------------------------------
+// Database::dump_supporter_mechanics  (debug only)
+// ---------------------------------------------------------------------------
+
+bool Database::dump_supporter_mechanics(
+    const std::string& db_path,
+    const std::string& output_path)
+{
+    return Database::dump_trainer_mechanics_impl(db_path, output_path, TrainerType::Supporter, "Supporter");
+}
+
+// ---------------------------------------------------------------------------
+// Database::dump_item_mechanics  (debug only)
+// ---------------------------------------------------------------------------
+
+bool Database::dump_item_mechanics(
+    const std::string& db_path,
+    const std::string& output_path)
+{
+    return Database::dump_trainer_mechanics_impl(db_path, output_path, TrainerType::Item, "Item");
+}
+
+// ---------------------------------------------------------------------------
+// Database::dump_tool_mechanics  (debug only)
+// ---------------------------------------------------------------------------
+
+bool Database::dump_tool_mechanics(
+    const std::string& db_path,
+    const std::string& output_path)
+{
+    return Database::dump_trainer_mechanics_impl(db_path, output_path, TrainerType::Tool, "Tool");
 }
 
 } // namespace ptcgp_sim

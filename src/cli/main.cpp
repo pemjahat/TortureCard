@@ -73,7 +73,10 @@ static int cmd_util(int argc, char* argv[])
                   << "  --validate_deck <deck.json>               Validate a deck JSON file\n"
                   << "  --simulate_turn <deck1.json> <deck2.json> Initialize a GameState and print summary\n"
                   << "  --dump_moves    <deck1.json> <deck2.json> Print game state and all legal moves\n"
-                  << "  --build_dictionary                        (Re)build mechanic dictionary files\n";
+                  << "  --build_dictionary                        (Re)build mechanic dictionary files\n"
+                  << "  --dump_supporter                          Dump unique Supporter effect texts to JSON\n"
+                  << "  --dump_item                               Dump unique Item effect texts to JSON\n"
+                  << "  --dump_tool                               Dump unique Tool effect texts to JSON\n";
         return 1;
     }
 
@@ -82,6 +85,24 @@ static int cmd_util(int argc, char* argv[])
     if (opt == "--build_dictionary")
     {
         bool ok = ptcgp_sim::Database::build_dictionaries();
+        return ok ? 0 : 1;
+    }
+
+    if (opt == "--dump_supporter")
+    {
+        bool ok = ptcgp_sim::Database::dump_supporter_mechanics();
+        return ok ? 0 : 1;
+    }
+
+    if (opt == "--dump_item")
+    {
+        bool ok = ptcgp_sim::Database::dump_item_mechanics();
+        return ok ? 0 : 1;
+    }
+
+    if (opt == "--dump_tool")
+    {
+        bool ok = ptcgp_sim::Database::dump_tool_mechanics();
         return ok ? 0 : 1;
     }
 
@@ -455,7 +476,10 @@ int main(int argc, char* argv[])
                   << "  util  --validate_deck <deck.json>            Validate a deck\n"
                   << "  util  --simulate_turn <d1.json> <d2.json>    Initialize and print game state\n"
                   << "  util  --dump_moves    <d1.json> <d2.json>    Print game state + legal moves\n"
-                  << "  util  --build_dictionary                     (Re)build mechanic dictionary files\n";
+                  << "  util  --build_dictionary                     (Re)build mechanic dictionary files\n"
+  << "  util  --dump_supporter                       Dump unique Supporter effect texts to JSON\n"
+                  << "  util  --dump_item                            Dump unique Item effect texts to JSON\n"
+                  << "  util  --dump_tool                            Dump unique Tool effect texts to JSON\n";
         return 0;
     }
 
