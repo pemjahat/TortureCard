@@ -89,15 +89,9 @@ int main()
 {
     std::cout << "=== ptcgp_sim weighted random player tests ===\n";
 
-    RUN_TEST(test_decide_returns_one_of_the_legal_moves);
-    RUN_TEST(test_fixed_seed_produces_deterministic_decisions);
-    RUN_TEST(test_single_legal_move_is_selected);
+    RUN_TEST_WITH_PASS(test_decide_returns_one_of_the_legal_moves);
+    RUN_TEST_WITH_PASS(test_fixed_seed_produces_deterministic_decisions);
+    RUN_TEST_WITH_PASS(test_single_legal_move_is_selected);
 
-    std::cout << "\n";
-    if (g_failures == 0)
-        std::cout << "All tests passed.\n";
-    else
-        std::cerr << g_failures << " test(s) FAILED.\n";
-
-    return g_failures > 0 ? 1 : 0;
+    return ptcgp_test::print_summary();
 }

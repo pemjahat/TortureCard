@@ -7,6 +7,7 @@
 
 #include "ptcgp_sim/effects.h"
 #include "ptcgp_sim/attack_mechanic.h"
+#include "test_support.h"
 
 #include <memory>
 
@@ -298,11 +299,5 @@ int main()
     RUN_TEST(test_flip_until_tails_0heads);
     RUN_TEST(test_weakness_applied_after_mechanic);
 
-    std::cout << "\n";
-    if (g_failures == 0)
-        std::cout << "All tests passed.\n";
-    else
-        std::cerr << g_failures << " test(s) FAILED.\n";
-
-    return g_failures > 0 ? 1 : 0;
+    return ptcgp_test::print_summary();
 }

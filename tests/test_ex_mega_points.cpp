@@ -307,11 +307,5 @@ int main()
     RUN_TEST(test_ko_ex_triggers_game_over_at_3_points);
     RUN_TEST(test_ko_mega_triggers_immediate_game_over);
 
-    std::cout << "\n";
-    if (g_failures == 0)
-        std::cout << "All tests passed.\n";
-    else
-        std::cerr << g_failures << " test(s) FAILED.\n";
-
-    return g_failures > 0 ? 1 : 0;
+    return ptcgp_test::print_summary();
 }

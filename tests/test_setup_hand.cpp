@@ -331,11 +331,5 @@ int main()
     RUN_TEST(test_gamestate_deal_both_hands_have_basic);
     RUN_TEST(test_gamestate_deal_does_not_modify_other_fields);
 
-    std::cout << "\n";
-    if (g_failures == 0) {
-        std::cout << "All tests passed.\n";
-    } else {
-        std::cerr << g_failures << " test(s) FAILED.\n";
-    }
-    return g_failures > 0 ? 1 : 0;
+    return ptcgp_test::print_summary();
 }

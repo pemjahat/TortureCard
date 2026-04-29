@@ -832,11 +832,5 @@ int main()
     RUN_TEST(test_free_retreat_no_energy_discard);
     RUN_TEST(test_multi_ko_energy_discard_independent);
 
-    std::cout << "\n";
-    if (g_failures == 0)
-        std::cout << "All tests passed.\n";
-    else
-        std::cerr << g_failures << " test(s) FAILED.\n";
-
-    return g_failures > 0 ? 1 : 0;
+    return ptcgp_test::print_summary();
 }

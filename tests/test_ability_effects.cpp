@@ -362,34 +362,28 @@ int main()
     std::cout << "=== ptcgp_sim ability effect system tests ===\n";
 
     // Requirement 1: attack_mechanic_dictionary
-    RUN_TEST(test_attack_mechanic_dictionary_lookup);
+    RUN_TEST_WITH_PASS(test_attack_mechanic_dictionary_lookup);
 
     // Requirement 3-4: AbilityMechanic types
-    RUN_TEST(test_ability_mechanic_equality);
-    RUN_TEST(test_ability_mechanic_clone);
-    RUN_TEST(test_ability_mechanic_timing);
+    RUN_TEST_WITH_PASS(test_ability_mechanic_equality);
+    RUN_TEST_WITH_PASS(test_ability_mechanic_clone);
+    RUN_TEST_WITH_PASS(test_ability_mechanic_timing);
 
     // Requirement 5: ability_mechanic_dictionary
-    RUN_TEST(test_ability_mechanic_dictionary_lookup);
-    RUN_TEST(test_ability_mechanic_params_json_roundtrip);
+    RUN_TEST_WITH_PASS(test_ability_mechanic_dictionary_lookup);
+    RUN_TEST_WITH_PASS(test_ability_mechanic_params_json_roundtrip);
 
     // Requirement 8: Activate Heal abilities
-    RUN_TEST(test_heal_all_your_pokemon);
-    RUN_TEST(test_heal_one_your_pokemon);
-    RUN_TEST(test_heal_active_your_pokemon);
-    RUN_TEST(test_heal_clamped_to_zero);
-    RUN_TEST(test_ability_used_this_turn_flag);
+    RUN_TEST_WITH_PASS(test_heal_all_your_pokemon);
+    RUN_TEST_WITH_PASS(test_heal_one_your_pokemon);
+    RUN_TEST_WITH_PASS(test_heal_active_your_pokemon);
+    RUN_TEST_WITH_PASS(test_heal_clamped_to_zero);
+    RUN_TEST_WITH_PASS(test_ability_used_this_turn_flag);
 
     // Requirement 9: Passive ReduceDamage
-    RUN_TEST(test_reduce_damage_from_attacks);
-    RUN_TEST(test_reduce_damage_mechanic_directly);
-    RUN_TEST(test_reduce_damage_after_weakness);
+    RUN_TEST_WITH_PASS(test_reduce_damage_from_attacks);
+    RUN_TEST_WITH_PASS(test_reduce_damage_mechanic_directly);
+    RUN_TEST_WITH_PASS(test_reduce_damage_after_weakness);
 
-    std::cout << "\n";
-    if (g_failures == 0)
-        std::cout << "All tests passed.\n";
-    else
-        std::cerr << g_failures << " test(s) FAILED.\n";
-
-    return g_failures > 0 ? 1 : 0;
+    return ptcgp_test::print_summary();
 }

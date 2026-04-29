@@ -272,11 +272,5 @@ int main()
         ++g_failures;
     }
 
-    std::cout << "\n";
-    if (g_failures == 0) {
-        std::cout << "All tests passed.\n";
-    } else {
-        std::cerr << g_failures << " test(s) FAILED.\n";
-    }
-    return g_failures > 0 ? 1 : 0;
+    return ptcgp_test::print_summary();
 }

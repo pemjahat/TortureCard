@@ -7,6 +7,7 @@
 
 #include "ptcgp_sim/effects.h"
 #include "ptcgp_sim/move_generation.h"
+#include "test_support.h"
 
 // ---------------------------------------------------------------------------
 // Local helpers (evolution-test-specific)
@@ -521,11 +522,5 @@ int main()
     RUN_TEST(test_no_evolve_wrong_evolves_from);
     RUN_TEST(test_ko_basic_discards_only_itself);
 
-    std::cout << "\n";
-    if (g_failures == 0) {
-        std::cout << "All tests passed.\n";
-    } else {
-        std::cerr << g_failures << " test(s) FAILED.\n";
-    }
-    return g_failures > 0 ? 1 : 0;
+    return ptcgp_test::print_summary();
 }

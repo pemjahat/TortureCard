@@ -5,6 +5,7 @@
 #include "test_helpers.h"
 
 #include "ptcgp_sim/move_generation.h"
+#include "test_support.h"
 
 static bool has_action_type(const std::vector<ptcgp_sim::Action>& moves,
                              ptcgp_sim::ActionType t)
@@ -344,11 +345,5 @@ int main()
     RUN_TEST(test_play_supporter_blocked_after_one_played);
     RUN_TEST(test_play_stadium_always_legal);
 
-    std::cout << "\n";
-    if (g_failures == 0) {
-        std::cout << "All tests passed.\n";
-    } else {
-        std::cerr << g_failures << " test(s) FAILED.\n";
-    }
-    return g_failures > 0 ? 1 : 0;
+    return ptcgp_test::print_summary();
 }
