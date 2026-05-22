@@ -5,7 +5,6 @@
 #include "test_helpers.h"
 
 #include "ptcgp_sim/move_generation.h"
-#include "test_support.h"
 
 static bool has_action_type(const std::vector<ptcgp_sim::Action>& moves,
                              ptcgp_sim::ActionType t)
@@ -157,7 +156,7 @@ static void test_action_attack_generated_when_energy_met()
     ember.energy_required  = {EnergyType::Fire};
     ember.damage           = 30;
 
-    Card charmander = make_pokemon("A1", 33, "Charmander", 0, {ember});
+    Card charmander = make_pokemon("A1", 33, "Charmander", 0, EnergyType::Fire, 0, {ember});
 
     GameState gs;
     gs.turn_phase     = TurnPhase::Action;
@@ -187,7 +186,7 @@ static void test_action_attack_not_generated_when_energy_insufficient()
     ember.energy_required  = {EnergyType::Fire, EnergyType::Fire};
     ember.damage           = 50;
 
-    Card charmander = make_pokemon("A1", 33, "Charmander", 0, {ember});
+    Card charmander = make_pokemon("A1", 33, "Charmander", 0, EnergyType::Fire, 0, {ember});
 
     GameState gs;
     gs.turn_phase     = TurnPhase::Action;

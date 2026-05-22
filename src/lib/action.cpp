@@ -25,7 +25,10 @@ std::string Action::to_string() const
             oss << "Pass";
             break;
         case ActionType::PlaySupporter:
-            oss << "PlaySupporter(" << card_id.to_string() << ")";
+            if (slot_index != -1)
+                oss << "PlaySupporter(" << card_id.to_string() << ", slot=" << slot_index << ")";
+            else
+                oss << "PlaySupporter(" << card_id.to_string() << ")";
             break;
         case ActionType::PlayItem:
             oss << "PlayItem(" << card_id.to_string() << ")";
@@ -41,6 +44,9 @@ std::string Action::to_string() const
             break;
         case ActionType::UseAbility:
             oss << "UseAbility(slot=" << slot_index << ")";
+            break;
+        case ActionType::ChooseBenchSlot:
+            oss << "ChooseBenchSlot(slot=" << slot_index << ")";
             break;
         default:
             oss << "Unknown";

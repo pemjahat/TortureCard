@@ -219,6 +219,28 @@ void GameLoop::run_action_phase(GameState& gs)
         // All other actions (PlayPokemon, AttachEnergy, Evolve, etc.)
         apply_action(gs, chosen, rng_);
 
+        // If a Sabrina was just played, pass priority to the opponent so they
+        // can choose which bench Pokemon to move to Active.
+        if (gs.pending_response == PendingResponse::SabrinaChoice)
+        {
+            const int responder = gs.pending_response_player;
+            log("  Sabrina played — passing priority to P" + std::to_string(responder) +
+                " to choose bench slot.");
+
+            std::vector<Action> response_moves = generate_legal_moves(gs, responder);
+            assert(!response_moves.empty() &&
+                   "GameLoop: Sabrina response — no ChooseBenchSlot moves available");
+
+            Action response = players_[responder]->decide(gs, response_moves);
+            log("  P" + std::to_string(responder) + " chooses: " + response.to_string());
+
+            assert(response.type == ActionType::ChooseBenchSlot &&
+                   "GameLoop: Sabrina response must be ChooseBenchSlot");
+
+            apply_action(gs, response, rng_);
+            // pending_response is now cleared by apply_action
+        }
+
         // After any action, check if a KO happened (e.g. from an ability)
         for (int side = 0; side < 2; ++side)
             promote_bench_to_active(gs, side);

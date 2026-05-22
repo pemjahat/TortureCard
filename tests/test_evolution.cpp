@@ -7,7 +7,6 @@
 
 #include "ptcgp_sim/effects.h"
 #include "ptcgp_sim/move_generation.h"
-#include "test_support.h"
 
 // ---------------------------------------------------------------------------
 // Local helpers (evolution-test-specific)

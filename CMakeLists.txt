@@ -199,6 +199,10 @@ add_ptcgp_test(ptcgp_test_weighted_random_player
     "${CMAKE_SOURCE_DIR}/tests/test_weighted_random_player.cpp"
     WeightedRandomPlayerTests)
 
+add_ptcgp_test(ptcgp_test_supporter_effects
+    "${CMAKE_SOURCE_DIR}/tests/test_supporter_effects.cpp"
+    SupporterEffectsTests)
+
 # ---------------------------------------------------------------------------
 # Summary
 # ---------------------------------------------------------------------------

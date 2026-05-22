@@ -23,6 +23,7 @@ enum class ActionType
     PlayStadium,    // Play a Stadium card (replaces current Stadium)
     Evolve,         // Evolve an in-play Pokemon using a card from hand
     UseAbility,     // Use the active (or bench) Pokemon's ability
+    ChooseBenchSlot,// Opponent chooses which bench slot to move to Active (Sabrina response)
 };
 
 struct Action
@@ -68,9 +69,9 @@ struct Action
         Action a; a.type = ActionType::Pass; return a;
     }
 
-    static Action play_supporter(const CardId& id)
+    static Action play_supporter(const CardId& id, int target_bench_slot = -1)
     {
-        Action a; a.type = ActionType::PlaySupporter; a.card_id = id; return a;
+        Action a; a.type = ActionType::PlaySupporter; a.card_id = id; a.slot_index = target_bench_slot; return a;
     }
 
     static Action play_item(const CardId& id)
@@ -96,6 +97,11 @@ struct Action
     static Action use_ability(int slot)
     {
         Action a; a.type = ActionType::UseAbility; a.slot_index = slot; return a;
+    }
+
+    static Action choose_bench_slot(int bench_slot)
+    {
+        Action a; a.type = ActionType::ChooseBenchSlot; a.slot_index = bench_slot; return a;
     }
 
     // Human-readable description for CLI output and debugging

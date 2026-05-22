@@ -52,6 +52,21 @@ static bool slot_has_tool(const std::array<std::optional<InPlayPokemon>, 4>& slo
     return slots[idx].has_value() && slots[idx]->attached_tool.has_value();
 }
 
+// Sabrina card identity check (mirrors is_sabrina in effects.cpp)
+static bool is_sabrina_card(const CardId& id)
+{
+    if (id.expansion == "A1" && id.number == 225) return true;
+    if (id.expansion == "A1" && id.number == 272) return true;
+    return false;
+}
+
+// Cyrus card identity check (mirrors is_cyrus in effects.cpp)
+static bool is_cyrus_card(const CardId& id)
+{
+    if (id.expansion == "A2" && id.number == 150) return true;
+    return false;
+}
+
 // Find a card in `hand` by CardId; returns nullptr if not found.
 static const Card* find_in_hand(const std::vector<Card>& hand, const CardId& id)
 {
@@ -69,6 +84,26 @@ std::vector<Action> generate_legal_moves(const GameState& gs, int player)
     const PlayerState&  ps    = gs.players[player];
     const auto&         slots = ps.pokemon_slots;
     const auto&         hand  = ps.hand;
+
+    // -----------------------------------------------------------------------
+    // SABRINA RESPONSE WINDOW
+    // When pending_response == SabrinaChoice, only the designated responder
+    // may act, and their only legal actions are ChooseBenchSlot options.
+    // -----------------------------------------------------------------------
+    if (gs.pending_response == PendingResponse::SabrinaChoice)
+    {
+        if (player == gs.pending_response_player)
+        {
+            // Emit one ChooseBenchSlot per occupied bench slot
+            for (int s = 1; s <= 3; ++s)
+            {
+                if (slots[s].has_value())
+                    moves.push_back(Action::choose_bench_slot(s));
+            }
+        }
+        // Active player has no moves while opponent holds priority
+        return moves;
+    }
 
     // -----------------------------------------------------------------------
     // SETUP PHASE
@@ -188,7 +223,37 @@ std::vector<Action> generate_legal_moves(const GameState& gs, int player)
         {
             case TrainerType::Supporter:
                 if (!gs.supporter_played_this_turn)
-                    moves.push_back(Action::play_supporter(c.id));
+                {
+                    // Sabrina: legal only when opponent has at least one bench Pokemon.
+                    // Emit a single PlaySupporter (no slot — opponent chooses later).
+                    if (is_sabrina_card(c.id))
+                    {
+                        const int opp = (player + 1) % 2;
+                        bool opp_has_bench = false;
+                        for (int s = 1; s <= 3; ++s)
+                            if (gs.players[opp].pokemon_slots[s].has_value())
+                            { opp_has_bench = true; break; }
+                        if (opp_has_bench)
+                            moves.push_back(Action::play_supporter(c.id));
+                    }
+                    // Cyrus: legal only when opponent has at least one damaged bench Pokemon.
+                    // Emit one PlaySupporter per damaged bench slot (active player chooses).
+                    else if (is_cyrus_card(c.id))
+                    {
+                        const int opp = (player + 1) % 2;
+                        for (int s = 1; s <= 3; ++s)
+                        {
+                            const auto& bench = gs.players[opp].pokemon_slots[s];
+                            if (bench.has_value() && bench->damage_counters > 0)
+                                moves.push_back(Action::play_supporter(c.id, s));
+                        }
+                    }
+                    // Generic supporter: always legal (once per turn)
+                    else
+                    {
+                        moves.push_back(Action::play_supporter(c.id));
+                    }
+                }
                 break;
 
             case TrainerType::Item:

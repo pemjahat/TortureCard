@@ -207,3 +207,19 @@ inline std::mt19937::result_type find_seed_for_flip_until_tails(int target_heads
     }
     throw std::runtime_error("find_seed_for_flip_until_tails: no seed found");
 }
+
+// ---------------------------------------------------------------------------
+// Test summary helper
+// ---------------------------------------------------------------------------
+
+namespace ptcgp_test
+{
+    inline int print_summary()
+    {
+        if (g_failures == 0)
+            std::cout << "\nAll tests passed.\n";
+        else
+            std::cerr << "\n" << g_failures << " test(s) FAILED.\n";
+        return g_failures == 0 ? 0 : 1;
+    }
+} // namespace ptcgp_test

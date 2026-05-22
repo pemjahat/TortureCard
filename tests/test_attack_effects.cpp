@@ -7,7 +7,6 @@
 
 #include "ptcgp_sim/effects.h"
 #include "ptcgp_sim/attack_mechanic.h"
-#include "test_support.h"
 
 #include <memory>
 
@@ -85,7 +84,7 @@ static void test_no_mechanic_uses_fixed_damage()
     using namespace ptcgp_sim;
 
     Attack atk = make_basic_attack("Tackle", 30);
-    Card attacker = make_pokemon("T1", 1, "Attacker", 100, EnergyType::Colorless, {atk});
+    Card attacker = make_pokemon("T1", 1, "Attacker", 100, EnergyType::Colorless, 0, {atk});
     Card defender = make_pokemon("T1", 2, "Defender", 100);
 
     GameState gs = make_game(attacker, defender);
@@ -104,7 +103,7 @@ static void test_flip1coin_damage_heads()
 
     auto seed = find_seed_for_heads(1, 1); // 1 coin, 1 head
     Attack atk = make_attack_with_mechanic("Gnaw", 0, std::make_unique<FlipNCoinDamage>(1, 30, 0));
-    Card attacker = make_pokemon("T1", 1, "Attacker", 100, EnergyType::Colorless, {atk});
+    Card attacker = make_pokemon("T1", 1, "Attacker", 100, EnergyType::Colorless, 0, {atk});
     Card defender = make_pokemon("T1", 2, "Defender", 100);
 
     GameState gs = make_game(attacker, defender);
@@ -123,7 +122,7 @@ static void test_flip1coin_damage_tails()
 
     auto seed = find_seed_for_heads(1, 0); // 1 coin, 0 heads (tails)
     Attack atk = make_attack_with_mechanic("Gnaw", 0, std::make_unique<FlipNCoinDamage>(1, 30, 0));
-    Card attacker = make_pokemon("T1", 1, "Attacker", 100, EnergyType::Colorless, {atk});
+    Card attacker = make_pokemon("T1", 1, "Attacker", 100, EnergyType::Colorless, 0, {atk});
     Card defender = make_pokemon("T1", 2, "Defender", 100);
 
     GameState gs = make_game(attacker, defender);
@@ -144,7 +143,7 @@ static void test_flip2coin_extra_damage_2heads()
     // attack.damage=40, extra_damage=20, include_fixed=true -> 40 + 20*2 = 80
     Attack atk = make_attack_with_mechanic("Double Slap", 40,
                      std::make_unique<FlipNCoinExtraDamage>(2, 20, true));
-    Card attacker = make_pokemon("T1", 1, "Attacker", 100, EnergyType::Colorless, {atk});
+    Card attacker = make_pokemon("T1", 1, "Attacker", 100, EnergyType::Colorless, 0, {atk});
     Card defender = make_pokemon("T1", 2, "Defender", 100);
 
     GameState gs = make_game(attacker, defender);
@@ -165,7 +164,7 @@ static void test_flip2coin_damage_no_fixed_2heads()
     // include_fixed=false -> 0 + 30*2 = 60
     Attack atk = make_attack_with_mechanic("Fury Attack", 0,
                      std::make_unique<FlipNCoinExtraDamage>(2, 30, false));
-    Card attacker = make_pokemon("T1", 1, "Attacker", 100, EnergyType::Colorless, {atk});
+    Card attacker = make_pokemon("T1", 1, "Attacker", 100, EnergyType::Colorless, 0, {atk});
     Card defender = make_pokemon("T1", 2, "Defender", 100);
 
     GameState gs = make_game(attacker, defender);
@@ -184,7 +183,7 @@ static void test_self_heal_reduces_attacker_damage()
 
     // Attacker has 50 damage counters; attack deals 40 damage and heals 30
     Attack atk = make_attack_with_mechanic("Mega Drain", 40, std::make_unique<SelfHeal>(30));
-    Card attacker = make_pokemon("T1", 1, "Attacker", 100, EnergyType::Colorless, {atk});
+    Card attacker = make_pokemon("T1", 1, "Attacker", 100, EnergyType::Colorless, 0, {atk});
     Card defender = make_pokemon("T1", 2, "Defender", 100);
 
     GameState gs = make_game(attacker, defender, 50 /*p0 damage counters*/);
@@ -206,7 +205,7 @@ static void test_self_heal_clamped_to_zero()
 
     // Attacker has only 10 damage counters; heals 30 -> should clamp to 0
     Attack atk = make_attack_with_mechanic("Mega Drain", 40, std::make_unique<SelfHeal>(30));
-    Card attacker = make_pokemon("T1", 1, "Attacker", 100, EnergyType::Colorless, {atk});
+    Card attacker = make_pokemon("T1", 1, "Attacker", 100, EnergyType::Colorless, 0, {atk});
     Card defender = make_pokemon("T1", 2, "Defender", 100);
 
     GameState gs = make_game(attacker, defender, 10 /*p0 damage counters*/);
@@ -225,7 +224,7 @@ static void test_flip_until_tails_2heads()
 
     auto seed = find_seed_for_flip_until_tails(2); // H, H, T
     Attack atk = make_attack_with_mechanic("Waterfall", 0, std::make_unique<FlipUntilTailsDamage>(20));
-    Card attacker = make_pokemon("T1", 1, "Attacker", 100, EnergyType::Colorless, {atk});
+    Card attacker = make_pokemon("T1", 1, "Attacker", 100, EnergyType::Colorless, 0, {atk});
     Card defender = make_pokemon("T1", 2, "Defender", 100);
 
     GameState gs = make_game(attacker, defender);
@@ -244,7 +243,7 @@ static void test_flip_until_tails_0heads()
 
     auto seed = find_seed_for_flip_until_tails(0); // T immediately
     Attack atk = make_attack_with_mechanic("Waterfall", 0, std::make_unique<FlipUntilTailsDamage>(20));
-    Card attacker = make_pokemon("T1", 1, "Attacker", 100, EnergyType::Colorless, {atk});
+    Card attacker = make_pokemon("T1", 1, "Attacker", 100, EnergyType::Colorless, 0, {atk});
     Card defender = make_pokemon("T1", 2, "Defender", 100);
 
     GameState gs = make_game(attacker, defender);
@@ -264,8 +263,8 @@ static void test_weakness_applied_after_mechanic()
     // Fire attacker vs Water defender with Fire weakness
     auto seed = find_seed_for_heads(1, 1); // 1 coin, heads
     Attack atk = make_attack_with_mechanic("Ember", 0, std::make_unique<FlipNCoinDamage>(1, 30, 0));
-    Card attacker = make_pokemon("T1", 1, "Attacker", 100, EnergyType::Fire, {atk});
-    Card defender = make_pokemon("T1", 2, "Defender", 100, EnergyType::Water,
+    Card attacker = make_pokemon("T1", 1, "Attacker", 100, EnergyType::Fire, 0, {atk});
+    Card defender = make_pokemon("T1", 2, "Defender", 100, EnergyType::Water, 0,
                                   {}, EnergyType::Fire /*weakness*/);
 
     GameState gs = make_game(attacker, defender);

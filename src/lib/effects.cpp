@@ -3,6 +3,7 @@
 #include "ptcgp_sim/game_state.h"
 #include "ptcgp_sim/action.h"
 #include "ptcgp_sim/ability_mechanic.h"
+#include "ptcgp_sim/supporter_effects.h"
 
 #include <algorithm>
 #include <cassert>
@@ -423,9 +424,17 @@ void apply_action(GameState& gs, const Action& action, std::mt19937& rng)
             hand.erase(it);
             gs.players[player].discard_pile.push_back(supporter_card);
             gs.supporter_played_this_turn = true;
-            // TODO: resolve supporter effect (e.g. Misty, Professor's Research, etc.)
+
+            apply_supporter_effect(gs, player, action);
             break;
         }
+
+        // ---------------------------------------------------------------
+        // ChooseBenchSlot (opponent response to Sabrina)
+        // ---------------------------------------------------------------
+        case ActionType::ChooseBenchSlot:
+            apply_choose_bench_slot(gs, action);
+            break;
 
         // ---------------------------------------------------------------
         // PlayStadium

@@ -25,6 +25,17 @@ enum class StatusCondition
 };
 
 // ---------------------------------------------------------------------------
+// Pending mid-turn response required from the non-active player.
+// Used when a card effect (e.g. Sabrina) passes priority to the opponent
+// so they can make a choice before the active player continues.
+// ---------------------------------------------------------------------------
+enum class PendingResponse
+{
+    None,           // No pending response — normal turn flow
+    SabrinaChoice,  // Opponent must choose which bench slot to move to Active
+};
+
+// ---------------------------------------------------------------------------
 // Turn phases within a single player's turn
 // ---------------------------------------------------------------------------
 enum class TurnPhase
@@ -124,6 +135,11 @@ struct GameState
     // Stadium currently in play (nullopt if none)
     std::optional<CardId> current_stadium{};
 
+    // Pending response from the non-active player (e.g. Sabrina bench choice).
+    // When non-None, the opponent must act before the active player continues.
+    PendingResponse pending_response{PendingResponse::None};
+    int             pending_response_player{-1}; // index of the player who must respond
+
     // Energy available to attach this turn (nullopt if not yet generated / turn 1)
     std::optional<EnergyType> current_energy{};
 
@@ -168,6 +184,8 @@ struct GameState
         retreated_this_turn        = false;
         attacked_this_turn         = false;
         current_energy             = std::nullopt;
+        pending_response           = PendingResponse::None;
+        pending_response_player    = -1;
         // Reset ability_used_this_turn for all in-play Pokemon
         for (auto& ps : players)
             for (auto& slot : ps.pokemon_slots)
