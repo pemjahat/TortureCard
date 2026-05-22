@@ -26,7 +26,8 @@ namespace ptcgp_sim
 // target bench slot for cards where the active player chooses the target
 // (e.g. Cyrus).  For cards where the opponent chooses (e.g. Sabrina),
 // slot_index is -1 and a PendingResponse is set on the GameState instead.
-void apply_supporter_effect(GameState& gs, int player, const Action& action);
+// `rng` is required by effects that involve randomness (Mars, Copycat, Lisia).
+void apply_supporter_effect(GameState& gs, int player, const Action& action, std::mt19937& rng);
 
 // Resolve a ChooseBenchSlot action submitted by the opponent during a
 // Sabrina response window.  Executes the bench-swap and clears

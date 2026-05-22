@@ -125,6 +125,10 @@ int apply_attack_damage(GameState& gs, int attacker_player, int attack_index, st
         }
     }
 
+    // Apply attack_boost (generic turn-scoped bonus from any source, e.g. Giovanni)
+    if (damage > 0)
+        damage += gs.attack_boost;
+
     // Apply damage (cap so damage_counters never exceed card.hp)
     if (damage > 0)
     {
@@ -390,9 +394,11 @@ void apply_action(GameState& gs, const Action& action, std::mt19937& rng)
 
             // Pay retreat cost: retreat cost is always Colorless (any energy counts).
             // Remove one energy per cost entry and send it to the energy discard bin.
+            // retreat_reduction (e.g. from Leaf) reduces the number of energies discarded.
             InPlayPokemon& active = *active_slot;
             const int cost_count = static_cast<int>(active.card.retreat_cost.size());
-            for (int i = 0; i < cost_count && !active.attached_energy.empty(); ++i)
+            const int effective_cost = std::max(0, cost_count - gs.retreat_reduction);
+            for (int i = 0; i < effective_cost && !active.attached_energy.empty(); ++i)
             {
                 gs.players[player].energy_discard.push_back(active.attached_energy.back());
                 active.attached_energy.pop_back();
@@ -425,7 +431,7 @@ void apply_action(GameState& gs, const Action& action, std::mt19937& rng)
             gs.players[player].discard_pile.push_back(supporter_card);
             gs.supporter_played_this_turn = true;
 
-            apply_supporter_effect(gs, player, action);
+            apply_supporter_effect(gs, player, action, rng);
             break;
         }
 

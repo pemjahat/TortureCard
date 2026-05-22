@@ -280,7 +280,13 @@ std::vector<Action> generate_legal_moves(const GameState& gs, int player)
     if (!gs.retreated_this_turn && slots[0].has_value())
     {
         const InPlayPokemon& active = *slots[0];
-        if (energy_satisfies_cost(active.attached_energy, active.card.retreat_cost))
+        // retreat_reduction (e.g. from Leaf) reduces the effective cost (minimum 0).
+        const int full_cost      = static_cast<int>(active.card.retreat_cost.size());
+        const int effective_cost = std::max(0, full_cost - gs.retreat_reduction);
+        const std::vector<EnergyType> reduced_cost(
+            active.card.retreat_cost.begin(),
+            active.card.retreat_cost.begin() + effective_cost);
+        if (energy_satisfies_cost(active.attached_energy, reduced_cost))
         {
             for (int i = 1; i <= 3; ++i)
             {

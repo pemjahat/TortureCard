@@ -457,6 +457,439 @@ static void test_swap_preserves_all_state()
 }
 
 // ============================================================================
+// Professor's Research tests
+// ============================================================================
+
+// ---------------------------------------------------------------------------
+// Test PR1: Professor's Research draws 2 cards from deck
+// ---------------------------------------------------------------------------
+static void test_professors_research_draws_two_cards()
+{
+    using namespace ptcgp_sim;
+
+    Card prof_research = make_trainer("A4b", 373, "Professor's Research", TrainerType::Supporter);
+    Card active        = make_pokemon("A1", 1, "Active", 60);
+    Card deck_card     = make_pokemon("A1", 2, "DeckMon", 60);
+
+    GameState gs = make_game(active, active);
+    gs.players[0].hand.push_back(prof_research);
+    // Give player 0 a deck with 5 cards
+    gs.players[0].deck.cards = std::vector<Card>(5, deck_card);
+
+    const std::size_t hand_before = gs.players[0].hand.size(); // 1 (prof research)
+    const std::size_t deck_before = gs.players[0].deck.cards.size(); // 5
+
+    std::mt19937 rng(42);
+    apply_action(gs, Action::play_supporter(prof_research.id), rng);
+
+    // Card removed from hand, 2 drawn: net hand size = hand_before - 1 + 2
+    REQUIRE(gs.players[0].hand.size() == hand_before - 1 + 2);
+    REQUIRE(gs.players[0].deck.cards.size() == deck_before - 2);
+    REQUIRE(gs.supporter_played_this_turn == true);
+
+    std::cout << "  [PASS] test_professors_research_draws_two_cards\n";
+}
+
+// ---------------------------------------------------------------------------
+// Test PR2: Professor's Research with only 1 deck card draws 1 without error
+// ---------------------------------------------------------------------------
+static void test_professors_research_draws_partial_when_deck_small()
+{
+    using namespace ptcgp_sim;
+
+    Card prof_research = make_trainer("P-A", 7, "Professor's Research", TrainerType::Supporter);
+    Card active        = make_pokemon("A1", 1, "Active", 60);
+    Card deck_card     = make_pokemon("A1", 2, "DeckMon", 60);
+
+    GameState gs = make_game(active, active);
+    gs.players[0].hand.push_back(prof_research);
+    gs.players[0].deck.cards = std::vector<Card>(1, deck_card);
+
+    std::mt19937 rng(42);
+    apply_action(gs, Action::play_supporter(prof_research.id), rng);
+
+    // Only 1 card in deck, so only 1 drawn; prof research removed from hand
+    REQUIRE(gs.players[0].hand.size() == 1); // 0 remaining + 1 drawn
+    REQUIRE(gs.players[0].deck.cards.empty());
+
+    std::cout << "  [PASS] test_professors_research_draws_partial_when_deck_small\n";
+}
+
+// ============================================================================
+// Giovanni tests
+// ============================================================================
+
+// ---------------------------------------------------------------------------
+// Test G1: Giovanni sets attack_boost to 10
+// ---------------------------------------------------------------------------
+static void test_giovanni_sets_attack_boost()
+{
+    using namespace ptcgp_sim;
+
+    Card giovanni = make_trainer("A1", 223, "Giovanni", TrainerType::Supporter);
+    Card active   = make_pokemon("A1", 1, "Active", 60);
+
+    GameState gs = make_game(active, active);
+    gs.players[0].hand.push_back(giovanni);
+
+    REQUIRE(gs.attack_boost == 0);
+
+    std::mt19937 rng(42);
+    apply_action(gs, Action::play_supporter(giovanni.id), rng);
+
+    REQUIRE(gs.attack_boost == 10);
+    REQUIRE(gs.supporter_played_this_turn == true);
+
+    std::cout << "  [PASS] test_giovanni_sets_attack_boost\n";
+}
+
+// ---------------------------------------------------------------------------
+// Test G2: Giovanni causes attack to deal +10 extra damage
+// ---------------------------------------------------------------------------
+static void test_giovanni_attack_deals_extra_damage()
+{
+    using namespace ptcgp_sim;
+
+    Card giovanni  = make_trainer("A1", 223, "Giovanni", TrainerType::Supporter);
+    Attack scratch = make_attack("Scratch", 30, {EnergyType::Colorless});
+    Card attacker  = make_pokemon("A1", 1, "Attacker", 60, EnergyType::Colorless, 0, {scratch});
+    Card defender  = make_pokemon("A1", 2, "Defender", 100);
+
+    GameState gs = make_game(attacker, defender);
+    gs.players[0].hand.push_back(giovanni);
+    gs.players[0].pokemon_slots[0]->attached_energy.push_back(EnergyType::Colorless);
+
+    std::mt19937 rng(42);
+    apply_action(gs, Action::play_supporter(giovanni.id), rng);
+    apply_action(gs, Action::attack(0), rng);
+
+    // 30 base + 10 giovanni = 40 damage
+    REQUIRE(gs.players[1].pokemon_slots[0]->damage_counters == 40);
+
+    std::cout << "  [PASS] test_giovanni_attack_deals_extra_damage\n";
+}
+
+// ---------------------------------------------------------------------------
+// Test G3: attack_boost resets to 0 after reset_turn_flags
+// ---------------------------------------------------------------------------
+static void test_giovanni_attack_boost_resets_each_turn()
+{
+    using namespace ptcgp_sim;
+
+    GameState gs;
+    gs.attack_boost = 10;
+    gs.reset_turn_flags();
+
+    REQUIRE(gs.attack_boost == 0);
+
+    std::cout << "  [PASS] test_giovanni_attack_boost_resets_each_turn\n";
+}
+
+// ============================================================================
+// Leaf tests
+// ============================================================================
+
+// ---------------------------------------------------------------------------
+// Test L1: Leaf sets retreat_reduction to 2
+// ---------------------------------------------------------------------------
+static void test_leaf_sets_retreat_reduction()
+{
+    using namespace ptcgp_sim;
+
+    Card leaf   = make_trainer("A1a", 68, "Leaf", TrainerType::Supporter);
+    Card active = make_pokemon("A1", 1, "Active", 60);
+
+    GameState gs = make_game(active, active);
+    gs.players[0].hand.push_back(leaf);
+
+    REQUIRE(gs.retreat_reduction == 0);
+
+    std::mt19937 rng(42);
+    apply_action(gs, Action::play_supporter(leaf.id), rng);
+
+    REQUIRE(gs.retreat_reduction == 2);
+    REQUIRE(gs.supporter_played_this_turn == true);
+
+    std::cout << "  [PASS] test_leaf_sets_retreat_reduction\n";
+}
+
+// ---------------------------------------------------------------------------
+// Test L2: Leaf allows retreating a Pokemon with cost 2 for free
+// ---------------------------------------------------------------------------
+static void test_leaf_allows_free_retreat_for_cost_2()
+{
+    using namespace ptcgp_sim;
+
+    Card leaf = make_trainer("A1a", 68, "Leaf", TrainerType::Supporter);
+
+    // Active Pokemon with retreat cost 2
+    Card heavy = make_pokemon("A1", 1, "Heavy", 100);
+    heavy.retreat_cost = {EnergyType::Colorless, EnergyType::Colorless};
+
+    Card bencher = make_pokemon("A1", 2, "Bencher", 60);
+
+    GameState gs = make_game(heavy, make_pokemon("A1", 3, "Opp", 60));
+    gs.players[0].hand.push_back(leaf);
+
+    // Give active 1 energy (not enough to retreat normally, cost is 2)
+    gs.players[0].pokemon_slots[0]->attached_energy.push_back(EnergyType::Fire);
+
+    // Place a bench Pokemon
+    InPlayPokemon bench_ip; bench_ip.card = bencher; bench_ip.played_this_turn = false;
+    gs.players[0].pokemon_slots[1] = bench_ip;
+
+    // Without Leaf, retreat should not be legal (only 1 energy, cost 2)
+    auto moves_before = generate_legal_moves(gs, 0);
+    bool can_retreat_before = std::any_of(moves_before.begin(), moves_before.end(),
+        [](const ptcgp_sim::Action& a){ return a.type == ptcgp_sim::ActionType::Retreat; });
+    REQUIRE(!can_retreat_before);
+
+    // Play Leaf
+    std::mt19937 rng(42);
+    apply_action(gs, Action::play_supporter(leaf.id), rng);
+
+    // Now retreat should be legal (cost 2 - 2 = 0)
+    auto moves_after = generate_legal_moves(gs, 0);
+    bool can_retreat_after = std::any_of(moves_after.begin(), moves_after.end(),
+        [](const ptcgp_sim::Action& a){ return a.type == ptcgp_sim::ActionType::Retreat; });
+    REQUIRE(can_retreat_after);
+
+    // Execute retreat — no energy should be discarded
+    apply_action(gs, Action::retreat(1), rng);
+    REQUIRE(gs.players[0].energy_discard.empty());
+    REQUIRE(gs.players[0].pokemon_slots[0]->card.name == "Bencher");
+
+    std::cout << "  [PASS] test_leaf_allows_free_retreat_for_cost_2\n";
+}
+
+// ---------------------------------------------------------------------------
+// Test L3: retreat_reduction resets to 0 after reset_turn_flags
+// ---------------------------------------------------------------------------
+static void test_leaf_retreat_reduction_resets_each_turn()
+{
+    using namespace ptcgp_sim;
+
+    GameState gs;
+    gs.retreat_reduction = 2;
+    gs.reset_turn_flags();
+
+    REQUIRE(gs.retreat_reduction == 0);
+
+    std::cout << "  [PASS] test_leaf_retreat_reduction_resets_each_turn\n";
+}
+
+// ============================================================================
+// Mars tests
+// ============================================================================
+
+// ---------------------------------------------------------------------------
+// Test M1: Mars clears opponent hand and redraws (3 - points) cards
+// ---------------------------------------------------------------------------
+static void test_mars_reshuffles_opponent_hand_and_redraws()
+{
+    using namespace ptcgp_sim;
+
+    Card mars   = make_trainer("A2", 155, "Mars", TrainerType::Supporter);
+    Card active = make_pokemon("A1", 1, "Active", 60);
+    Card filler = make_pokemon("A1", 2, "Filler", 60);
+
+    GameState gs = make_game(active, active);
+    gs.players[0].hand.push_back(mars);
+
+    // Opponent has 4 cards in hand and 10 in deck, 1 point scored
+    gs.players[1].hand = std::vector<Card>(4, filler);
+    gs.players[1].deck.cards = std::vector<Card>(10, filler);
+    gs.players[1].points = 1;
+
+    std::mt19937 rng(42);
+    apply_action(gs, Action::play_supporter(mars.id), rng);
+
+    // Opponent should have (3 - 1) = 2 cards in hand
+    REQUIRE(gs.players[1].hand.size() == 2);
+    // Opponent deck should have 10 + 4 - 2 = 12 cards
+    REQUIRE(gs.players[1].deck.cards.size() == 12);
+    REQUIRE(gs.supporter_played_this_turn == true);
+
+    std::cout << "  [PASS] test_mars_reshuffles_opponent_hand_and_redraws\n";
+}
+
+// ---------------------------------------------------------------------------
+// Test M2: Mars with opponent at 0 points draws 3 cards
+// ---------------------------------------------------------------------------
+static void test_mars_draws_three_when_opponent_at_zero_points()
+{
+    using namespace ptcgp_sim;
+
+    Card mars   = make_trainer("A2", 155, "Mars", TrainerType::Supporter);
+    Card active = make_pokemon("A1", 1, "Active", 60);
+    Card filler = make_pokemon("A1", 2, "Filler", 60);
+
+    GameState gs = make_game(active, active);
+    gs.players[0].hand.push_back(mars);
+
+    gs.players[1].hand = std::vector<Card>(5, filler);
+    gs.players[1].deck.cards = std::vector<Card>(10, filler);
+    gs.players[1].points = 0;
+
+    std::mt19937 rng(42);
+    apply_action(gs, Action::play_supporter(mars.id), rng);
+
+    // (3 - 0) = 3 cards drawn
+    REQUIRE(gs.players[1].hand.size() == 3);
+
+    std::cout << "  [PASS] test_mars_draws_three_when_opponent_at_zero_points\n";
+}
+
+// ============================================================================
+// Copycat tests
+// ============================================================================
+
+// ---------------------------------------------------------------------------
+// Test CC1: Copycat shuffles hand and draws equal to opponent's hand size
+// ---------------------------------------------------------------------------
+static void test_copycat_draws_equal_to_opponent_hand_size()
+{
+    using namespace ptcgp_sim;
+
+    Card copycat = make_trainer("B1", 225, "Copycat", TrainerType::Supporter);
+    Card active  = make_pokemon("A1", 1, "Active", 60);
+    Card filler  = make_pokemon("A1", 2, "Filler", 60);
+
+    GameState gs = make_game(active, active);
+    // Player 0 hand: copycat + 2 other cards
+    gs.players[0].hand.push_back(copycat);
+    gs.players[0].hand.push_back(filler);
+    gs.players[0].hand.push_back(filler);
+    gs.players[0].deck.cards = std::vector<Card>(10, filler);
+
+    // Opponent has 5 cards in hand
+    gs.players[1].hand = std::vector<Card>(5, filler);
+
+    std::mt19937 rng(42);
+    apply_action(gs, Action::play_supporter(copycat.id), rng);
+
+    // Player 0 should now have 5 cards (opponent's hand size at time of play)
+    REQUIRE(gs.players[0].hand.size() == 5);
+    REQUIRE(gs.supporter_played_this_turn == true);
+
+    std::cout << "  [PASS] test_copycat_draws_equal_to_opponent_hand_size\n";
+}
+
+// ---------------------------------------------------------------------------
+// Test CC2: Copycat with opponent having 0 cards results in empty hand
+// ---------------------------------------------------------------------------
+static void test_copycat_with_empty_opponent_hand()
+{
+    using namespace ptcgp_sim;
+
+    Card copycat = make_trainer("B1", 225, "Copycat", TrainerType::Supporter);
+    Card active  = make_pokemon("A1", 1, "Active", 60);
+    Card filler  = make_pokemon("A1", 2, "Filler", 60);
+
+    GameState gs = make_game(active, active);
+    gs.players[0].hand.push_back(copycat);
+    gs.players[0].hand.push_back(filler);
+    gs.players[0].deck.cards = std::vector<Card>(10, filler);
+
+    // Opponent has 0 cards in hand
+    gs.players[1].hand.clear();
+
+    std::mt19937 rng(42);
+    apply_action(gs, Action::play_supporter(copycat.id), rng);
+
+    // Player 0 draws 0 cards
+    REQUIRE(gs.players[0].hand.empty());
+
+    std::cout << "  [PASS] test_copycat_with_empty_opponent_hand\n";
+}
+
+// ============================================================================
+// Lisia tests
+// ============================================================================
+
+// ---------------------------------------------------------------------------
+// Test LI1: Lisia fetches 2 random Basic Pokemon with HP <= 50
+// ---------------------------------------------------------------------------
+static void test_lisia_fetches_two_small_basics()
+{
+    using namespace ptcgp_sim;
+
+    Card lisia   = make_trainer("B1", 226, "Lisia", TrainerType::Supporter);
+    Card active  = make_pokemon("A1", 1, "Active", 60);
+    Card small1  = make_pokemon("A1", 10, "Small1", 40);  // qualifies
+    Card small2  = make_pokemon("A1", 11, "Small2", 50);  // qualifies
+    Card big     = make_pokemon("A1", 12, "Big",    80);  // does not qualify
+
+    GameState gs = make_game(active, active);
+    gs.players[0].hand.push_back(lisia);
+    gs.players[0].deck.cards = {small1, small2, big, big, big};
+
+    std::mt19937 rng(42);
+    apply_action(gs, Action::play_supporter(lisia.id), rng);
+
+    // Should have drawn both small basics (lisia removed, 2 drawn)
+    REQUIRE(gs.players[0].hand.size() == 2);
+    bool has_small1 = std::any_of(gs.players[0].hand.begin(), gs.players[0].hand.end(),
+        [](const Card& c){ return c.name == "Small1"; });
+    bool has_small2 = std::any_of(gs.players[0].hand.begin(), gs.players[0].hand.end(),
+        [](const Card& c){ return c.name == "Small2"; });
+    REQUIRE(has_small1);
+    REQUIRE(has_small2);
+    REQUIRE(gs.supporter_played_this_turn == true);
+
+    std::cout << "  [PASS] test_lisia_fetches_two_small_basics\n";
+}
+
+// ---------------------------------------------------------------------------
+// Test LI2: Lisia with no qualifying Pokemon does nothing (no crash)
+// ---------------------------------------------------------------------------
+static void test_lisia_no_qualifying_pokemon_no_crash()
+{
+    using namespace ptcgp_sim;
+
+    Card lisia  = make_trainer("B1", 226, "Lisia", TrainerType::Supporter);
+    Card active = make_pokemon("A1", 1, "Active", 60);
+    Card big    = make_pokemon("A1", 2, "Big", 80); // does not qualify
+
+    GameState gs = make_game(active, active);
+    gs.players[0].hand.push_back(lisia);
+    gs.players[0].deck.cards = std::vector<Card>(5, big);
+
+    std::mt19937 rng(42);
+    apply_action(gs, Action::play_supporter(lisia.id), rng);
+
+    // Lisia removed from hand, nothing drawn
+    REQUIRE(gs.players[0].hand.empty());
+
+    std::cout << "  [PASS] test_lisia_no_qualifying_pokemon_no_crash\n";
+}
+
+// ---------------------------------------------------------------------------
+// Test LI3: Lisia with only 1 qualifying Pokemon draws exactly 1
+// ---------------------------------------------------------------------------
+static void test_lisia_draws_one_when_only_one_qualifies()
+{
+    using namespace ptcgp_sim;
+
+    Card lisia  = make_trainer("B1", 226, "Lisia", TrainerType::Supporter);
+    Card active = make_pokemon("A1", 1, "Active", 60);
+    Card small  = make_pokemon("A1", 2, "Small", 50); // qualifies
+    Card big    = make_pokemon("A1", 3, "Big",   80); // does not qualify
+
+    GameState gs = make_game(active, active);
+    gs.players[0].hand.push_back(lisia);
+    gs.players[0].deck.cards = {small, big, big};
+
+    std::mt19937 rng(42);
+    apply_action(gs, Action::play_supporter(lisia.id), rng);
+
+    REQUIRE(gs.players[0].hand.size() == 1);
+    REQUIRE(gs.players[0].hand[0].name == "Small");
+
+    std::cout << "  [PASS] test_lisia_draws_one_when_only_one_qualifies\n";
+}
+
+// ============================================================================
 // main
 // ============================================================================
 
@@ -483,6 +916,33 @@ int main()
     // Cyrus effect resolution
     RUN_TEST(test_cyrus_play_swaps_bench_and_active);
     RUN_TEST(test_swap_preserves_all_state);
+
+    // Professor's Research
+    RUN_TEST(test_professors_research_draws_two_cards);
+    RUN_TEST(test_professors_research_draws_partial_when_deck_small);
+
+    // Giovanni
+    RUN_TEST(test_giovanni_sets_attack_boost);
+    RUN_TEST(test_giovanni_attack_deals_extra_damage);
+    RUN_TEST(test_giovanni_attack_boost_resets_each_turn);
+
+    // Leaf
+    RUN_TEST(test_leaf_sets_retreat_reduction);
+    RUN_TEST(test_leaf_allows_free_retreat_for_cost_2);
+    RUN_TEST(test_leaf_retreat_reduction_resets_each_turn);
+
+    // Mars
+    RUN_TEST(test_mars_reshuffles_opponent_hand_and_redraws);
+    RUN_TEST(test_mars_draws_three_when_opponent_at_zero_points);
+
+    // Copycat
+    RUN_TEST(test_copycat_draws_equal_to_opponent_hand_size);
+    RUN_TEST(test_copycat_with_empty_opponent_hand);
+
+    // Lisia
+    RUN_TEST(test_lisia_fetches_two_small_basics);
+    RUN_TEST(test_lisia_no_qualifying_pokemon_no_crash);
+    RUN_TEST(test_lisia_draws_one_when_only_one_qualifies);
 
     return ptcgp_test::print_summary();
 }

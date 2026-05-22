@@ -132,6 +132,11 @@ struct GameState
     bool retreated_this_turn{false};
     bool attacked_this_turn{false};
 
+    // Generic turn-scoped modifiers (additive; reset each turn)
+    // Any card or effect may increment these — not tied to a specific card.
+    int  attack_boost{0};      // bonus damage added to all attacks this turn
+    int  retreat_reduction{0}; // reduction to the Active Pokemon's retreat cost this turn
+
     // Stadium currently in play (nullopt if none)
     std::optional<CardId> current_stadium{};
 
@@ -183,6 +188,8 @@ struct GameState
         supporter_played_this_turn = false;
         retreated_this_turn        = false;
         attacked_this_turn         = false;
+        attack_boost               = 0;
+        retreat_reduction          = 0;
         current_energy             = std::nullopt;
         pending_response           = PendingResponse::None;
         pending_response_player    = -1;
