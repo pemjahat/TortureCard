@@ -61,17 +61,31 @@ struct InPlayPokemon
     std::optional<Card> attached_tool{};           // Tool card attached to this Pokemon (if any)
     std::vector<Card>   cards_behind{};            // Lower-stage cards stacked under this one (evolution chain)
 
-    // Convenience: remaining HP = base hp - damage_counters
+    // Returns the effective maximum HP, accounting for attached tools.
+    // Giant Cape (A2 147) adds +20 to the base HP.
+    int max_hp() const
+    {
+        int hp = card.hp;
+        if (attached_tool.has_value() &&
+            attached_tool->id.expansion == "A2" &&
+            attached_tool->id.number    == 147)
+        {
+            hp += 20;
+        }
+        return hp;
+    }
+
+    // Convenience: remaining HP = effective max HP - damage_counters
     int remaining_hp() const
     {
-        int rem = card.hp - damage_counters;
+        int rem = max_hp() - damage_counters;
         return rem < 0 ? 0 : rem;
     }
 
-    // True when damage_counters >= card's hp
+    // True when damage_counters >= effective max HP
     bool is_knocked_out() const
     {
-        return damage_counters >= card.hp;
+        return damage_counters >= max_hp();
     }
 
     // Clear volatile status conditions (called when moving to bench or retreating)

@@ -74,9 +74,9 @@ struct Action
         Action a; a.type = ActionType::PlaySupporter; a.card_id = id; a.slot_index = target_bench_slot; return a;
     }
 
-    static Action play_item(const CardId& id)
+    static Action play_item(const CardId& id, int target_slot = -1)
     {
-        Action a; a.type = ActionType::PlayItem; a.card_id = id; return a;
+        Action a; a.type = ActionType::PlayItem; a.card_id = id; a.target_slot = target_slot; return a;
     }
 
     static Action play_tool(const CardId& id, int target_slot)

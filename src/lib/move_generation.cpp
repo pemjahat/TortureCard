@@ -1,4 +1,5 @@
 #include "ptcgp_sim/move_generation.h"
+#include "ptcgp_sim/toolitem_effects.h"
 #include <algorithm>
 #include <map>
 
@@ -257,7 +258,19 @@ std::vector<Action> generate_legal_moves(const GameState& gs, int player)
                 break;
 
             case TrainerType::Item:
-                moves.push_back(Action::play_item(c.id));
+                // Potion targets a specific damaged Pokemon slot.
+                if (is_potion_item(c.id))
+                {
+                    for (int i = 0; i <= 3; ++i)
+                    {
+                        if (slots[i].has_value() && slots[i]->damage_counters > 0)
+                            moves.push_back(Action::play_item(c.id, i));
+                    }
+                }
+                else
+                {
+                    moves.push_back(Action::play_item(c.id));
+                }
                 break;
 
             case TrainerType::Tool:

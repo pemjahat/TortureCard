@@ -4,6 +4,7 @@
 #include "ptcgp_sim/action.h"
 #include "ptcgp_sim/ability_mechanic.h"
 #include "ptcgp_sim/supporter_effects.h"
+#include "ptcgp_sim/toolitem_effects.h"
 
 #include <algorithm>
 #include <cassert>
@@ -129,11 +130,11 @@ int apply_attack_damage(GameState& gs, int attacker_player, int attack_index, st
     if (damage > 0)
         damage += gs.attack_boost;
 
-    // Apply damage (cap so damage_counters never exceed card.hp)
+    // Apply damage (cap so damage_counters never exceed effective max HP)
     if (damage > 0)
     {
         int new_counters = defender.damage_counters + damage;
-        defender.damage_counters = std::min(new_counters, defender.card.hp);
+        defender.damage_counters = std::min(new_counters, defender.max_hp());
     }
 
     // -----------------------------------------------------------------------
@@ -143,6 +144,11 @@ int apply_attack_damage(GameState& gs, int attacker_player, int attack_index, st
     {
         atk.mechanic->apply_post_damage(attacker);
     }
+
+    // -----------------------------------------------------------------------
+    // Tool passives (e.g. Rocky Helmet counterattack)
+    // -----------------------------------------------------------------------
+    apply_tool_passive(gs, attacker_player, damage);
 
     return damage;
 }
@@ -309,10 +315,7 @@ void apply_action(GameState& gs, const Action& action, std::mt19937& rng)
             }
             else
             {
-                // TODO: resolve item effect for this card
-                // Card is already discarded above — no crash, but effect is unimplemented.
-                std::cerr << "[WARN] apply_action: unimplemented item effect for "
-                          << item_card.name << " (" << item_card.id.to_string() << ")\n";
+                apply_item_effect(gs, player, action.card_id, action.target_slot, rng);
             }
             break;
         }
