@@ -185,6 +185,10 @@ void GameLoop::run_action_phase(GameState& gs)
     log("--- T" + std::to_string(gs.turn_number) +
         " P" + std::to_string(p) + " Action ---");
 
+    // Fire the turn-dump callback (e.g. CLI dump_moves_for_state) if registered.
+    if (turn_dump_fn_)
+        turn_dump_fn_(gs);
+
     while (true)
     {
         std::vector<Action> moves = generate_legal_moves(gs, p);

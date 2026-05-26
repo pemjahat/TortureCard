@@ -3,6 +3,7 @@
 #include "game_state.h"
 #include "player.h"
 #include "simulator.h"
+#include <functional>
 #include <memory>
 #include <random>
 
@@ -24,10 +25,19 @@ namespace ptcgp_sim
 class GameLoop
 {
 public:
+    // Callback invoked at the start of every Action phase (before the active
+    // player decides).  Receives a const-ref to the current GameState so the
+    // caller can print the board, legal moves, etc.  Only fired when set.
+    using TurnDumpFn = std::function<void(const GameState&)>;
+
     // `players[0]` controls player 0, `players[1]` controls player 1.
     // `verbose` enables per-action console logging.
     GameLoop(Player* player0, Player* player1,
              std::mt19937& rng, bool verbose = false);
+
+    // Register a callback that is called at the start of each Action phase.
+    // Pass an empty function to clear it.
+    void set_turn_dump(TurnDumpFn fn) { turn_dump_fn_ = std::move(fn); }
 
     // Run the game to completion and return the result.
     SimulationResult run(GameState& gs);
@@ -38,6 +48,7 @@ private:
     Player*      players_[2];
     std::mt19937& rng_;
     bool          verbose_;
+    TurnDumpFn    turn_dump_fn_;
 
     // Phase handlers
     void run_setup_phase(GameState& gs);
