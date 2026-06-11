@@ -207,6 +207,10 @@ add_ptcgp_test(ptcgp_test_toolitem_effects
     "${CMAKE_SOURCE_DIR}/tests/test_toolitem_effects.cpp"
     ToolItemEffectsTests)
 
+add_ptcgp_test(ptcgp_test_expectiminimax_player
+    "${CMAKE_SOURCE_DIR}/tests/test_expectiminimax_player.cpp"
+    ExpectiMiniMaxPlayerTests)
+
 # ---------------------------------------------------------------------------
 # Summary
 # ---------------------------------------------------------------------------

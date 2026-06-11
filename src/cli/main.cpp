@@ -496,7 +496,7 @@ int main(int argc, char* argv[])
 
     if (cmd == "sim") 
     {
-        // Usage: ptcgp_cli sim <deck1.json> <deck2.json> [--verbose] [--seed <N>] [-player=a|w]
+        // Usage: ptcgp_cli sim <deck1.json> <deck2.json> [--verbose] [--seed <N>] [-player=a|w|e] [--depth <N>]
         if (argc < 4)
         {
             std::cerr << "sim: requires <deck1.json> <deck2.json>\n"
@@ -505,7 +505,9 @@ int main(int argc, char* argv[])
                       << "    --dump_moves    Dump final game state and legal moves after game ends\n"
                       << "    --seed <N>      Use a fixed RNG seed for reproducibility\n"
                       << "    -player=a       Use AttachAttack players (default)\n"
-                      << "    -player=w       Use WeightedRandom players\n";
+                      << "    -player=w       Use WeightedRandom players\n"
+                      << "    -player=e       Use ExpectiMiniMax players (default depth 2)\n"
+                      << "    --depth <N>     Search depth for ExpectiMiniMax (requires -player=e)\n";
             return 1;
         }
 
@@ -516,6 +518,7 @@ int main(int argc, char* argv[])
         uint64_t seed        = std::random_device{}();
         bool     has_seed    = false;
         char     player_mode = 'a';
+        int      emm_depth   = 2;
 
         for (int i = 4; i < argc; ++i)
         {
@@ -537,10 +540,23 @@ int main(int argc, char* argv[])
             {
                 player_mode = 'w';
             }
+            else if (flag == "-player=e")
+            {
+                player_mode = 'e';
+            }
+            else if (flag == "--depth" && i + 1 < argc)
+            {
+                emm_depth = std::stoi(argv[++i]);
+                if (emm_depth < 1)
+                {
+                    std::cerr << "sim: --depth must be >= 1\n";
+                    return 1;
+                }
+            }
             else if (flag.rfind("-player=", 0) == 0)
             {
                 std::cerr << "sim: unsupported player mode \"" << flag << "\"\n"
-                          << "  Supported values: -player=a, -player=w\n";
+                          << "  Supported values: -player=a, -player=w, -player=e\n";
                 return 1;
             }
             else
@@ -575,9 +591,15 @@ int main(int argc, char* argv[])
 
         if (has_seed)
             std::cout << "RNG seed: " << seed << "\n";
-        std::cout << "Player mode: "
-                  << (player_mode == 'w' ? "WeightedRandom" : "AttachAttack")
-                  << "\n\n";
+        {
+            const char* mode_name = (player_mode == 'w') ? "WeightedRandom"
+                                  : (player_mode == 'e') ? "ExpectiMiniMax"
+                                  :                        "AttachAttack";
+            std::cout << "Player mode: " << mode_name << "\n";
+            if (player_mode == 'e')
+                std::cout << "Search depth: " << emm_depth << "\n";
+            std::cout << "\n";
+        }
 
         // Run the game
         std::mt19937 rng(static_cast<uint32_t>(seed));
@@ -588,6 +610,15 @@ int main(int argc, char* argv[])
         {
             ptcgp_sim::WeightedRandomPlayer player0(static_cast<uint32_t>(seed));
             ptcgp_sim::WeightedRandomPlayer player1(static_cast<uint32_t>(seed + 1));
+            ptcgp_sim::GameLoop loop(&player0, &player1, rng, verbose);
+            if (verbose)
+                loop.set_turn_dump([&db](const ptcgp_sim::GameState& s){ dump_moves_for_state(s, db); });
+            result = loop.run(gs);
+        }
+        else if (player_mode == 'e')
+        {
+            ptcgp_sim::ExpectiMiniMaxPlayer player0(emm_depth);
+            ptcgp_sim::ExpectiMiniMaxPlayer player1(emm_depth);
             ptcgp_sim::GameLoop loop(&player0, &player1, rng, verbose);
             if (verbose)
                 loop.set_turn_dump([&db](const ptcgp_sim::GameState& s){ dump_moves_for_state(s, db); });

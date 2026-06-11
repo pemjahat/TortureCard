@@ -14,4 +14,5 @@
 #include "ptcgp_sim/player.h"
 #include "ptcgp_sim/attach_attack_player.h"
 #include "ptcgp_sim/weighted_random_player.h"
+#include "ptcgp_sim/expectiminimax_player.h"
 #include "ptcgp_sim/game_loop.h"

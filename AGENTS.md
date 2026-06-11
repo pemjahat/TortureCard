@@ -62,4 +62,21 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 
 --
 
+## 5. Documentation standards
+
+> 📌 **Before creating ANY markdown document or Mermaid diagram, you MUST read the relevant style guide.** These are not optional — they define the formatting, structure, citation, accessibility, and visual standards for this project.
+
+| Creating...                  | Read first                                                                                                                     |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| Any `.md` document           | [markdown_style_guide.md](markdown_style_guide.md)                                                                             |
+| Any Mermaid diagram          | [mermaid_style_guide.md](mermaid_style_guide.md), then the [specific type file](mermaid_diagrams/)                             |
+
+Key rules enforced by the style guides:
+
+- **Diagrams** — `accTitle` + `accDescr` on every diagram, `classDef` color classes (no inline `style`), emoji on key nodes
+- **Structure** — one H1, emoji on H2 only, no H5+, horizontal rules after `</details>` blocks
+- **Everything is Code** — all markdown files in `docs/taskNNN-{short-descrption}.md`
+
+---
+
 **These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.
